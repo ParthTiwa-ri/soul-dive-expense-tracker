@@ -15,27 +15,31 @@ export default function BottomNav({
   onSelectTab,
   pendingApprovalsCount = 0,
 }: BottomNavProps) {
-  const { language } = useApp();
+  const { language, currentUser } = useApp();
   const isHindi = language === 'hi';
+  const isOwner = currentUser.role === 'owner';
 
-  const tabs = [
+  const allTabs = [
     {
       id: 'entry' as const,
       labelHi: 'खर्च दर्ज करें',
       labelEn: 'Add Expense',
       icon: PlusCircle,
+      requiresOwner: false,
     },
     {
       id: 'ledger' as const,
       labelHi: 'बहीखाता',
       labelEn: 'Ledger',
       icon: BookOpen,
+      requiresOwner: false,
     },
     {
       id: 'dashboard' as const,
       labelHi: 'रिपोर्ट्स',
       labelEn: 'Reports',
       icon: BarChart3,
+      requiresOwner: false,
     },
     {
       id: 'approvals' as const,
@@ -43,13 +47,17 @@ export default function BottomNav({
       labelEn: 'Approvals',
       icon: ShieldCheck,
       badge: pendingApprovalsCount,
+      requiresOwner: true,
     },
   ];
 
+  // Filter tabs: Father (contributor) sees 3 simple tabs, Parth (owner) sees all 4 including Approvals
+  const visibleTabs = allTabs.filter((tab) => !tab.requiresOwner || isOwner);
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 safe-bottom shadow-lg">
-      <div className="max-w-md mx-auto grid grid-cols-4 px-2 py-1.5">
-        {tabs.map((tab) => {
+      <div className={`max-w-md mx-auto grid ${visibleTabs.length === 3 ? 'grid-cols-3' : 'grid-cols-4'} px-2 py-1.5`}>
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           const badgeCount = (tab as any).badge || 0;

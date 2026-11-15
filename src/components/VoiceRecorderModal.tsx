@@ -101,6 +101,9 @@ export default function VoiceRecorderModal({
 
         // Intelligently parse in real-time
         const parsed = parseVoiceTranscript(currentTranscript);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[VoiceParser] Transcript:', currentTranscript, '=> Parsed:', parsed);
+        }
         setParsedResult(parsed);
       };
 

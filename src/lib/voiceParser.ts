@@ -89,7 +89,7 @@ const PURPOSE_DICTIONARY: { keywords: string[]; displayLabel: string; categoryId
     categoryNameHi: 'केमिकल्स और वाटर ट्रीटमेंट',
   },
   {
-    keywords: ['चाय', 'नाश्ता', 'खाना', 'लंच', 'पानी बोतल', 'बिस्कुट'],
+    keywords: ['चाय', 'नाश्ता', 'नाश्ते', 'खाना', 'खाने', 'भोजन', 'लंच', 'डिनर', 'पानी बोतल', 'बिस्कुट', 'food', 'snacks', 'lunch', 'dinner', 'khane'],
     displayLabel: 'चाय-नाश्ता / खाना',
     categoryId: 'cat-fnb',
     categoryNameHi: 'खान-पान सामान (F&B)',
@@ -104,10 +104,15 @@ const PURPOSE_DICTIONARY: { keywords: string[]; displayLabel: string; categoryId
 
 // Words to strip out when determining the purpose
 const STOP_WORDS = new Set([
-  'आज', 'कल', 'परसों', 'को', 'से', 'के', 'लिए', 'का', 'की', 'के', 'रस', 'रुपये', 'रुपए', 'रु', 'पे',
-  'दिए', 'दिया', 'पेमेंट', 'किया', 'कर', 'दें', 'भेजा', 'भेजे', 'upi', 'यूपीआई', 'गूगल', 'फोनपे',
-  'पेटीएम', 'कैश', 'नकद', 'बैंक', 'खाते', 'ट्रांसफर', 'चेक', 'कार्ड', 'है', 'था', 'थी', 'थे',
-  'हजार', 'लाख', 'सौ', 'सौ', 'k', 'rs', 'rupees'
+  'आज', 'कल', 'परसों', 'को', 'से', 'के', 'लिए', 'लिये', 'का', 'की', 'रस', 'रुपये', 'रुपए', 'रु', 'पे',
+  'दिए', 'दिया', 'पेमेंट', 'किया', 'कर', 'दें', 'भेजा', 'भेजे', 'है', 'था', 'थी', 'थे',
+  'हजार', 'लाख', 'सौ', 'k', 'rs', 'rupees', 'diye', 'diya', 'ko', 'se', 'aaj', 'kal'
+]);
+
+const PAYMENT_TERMS = new Set([
+  'upi', 'यूपीआई', 'गूगल पे', 'गूगलपे', 'gpay', 'फोनपे', 'फोन पे', 'phonepe',
+  'पेटीएम', 'paytm', 'कैश', 'नकद', 'रोकड़ा', 'cash', 'बैंक', 'bank', 'खाते',
+  'transfer', 'ट्रांसफर', 'neft', 'rtgs', 'चेक', 'cheque', 'कार्ड', 'card'
 ]);
 
 /**
@@ -236,13 +241,16 @@ export function extractDate(transcript: string): string {
 }
 
 /**
- * Extracts vendor name if spoken (e.g. "शर्मा जी को", "पटेल को")
+ * Extracts vendor name if spoken (e.g. "शर्मा जी को", "पटेल को", "मजदूर को")
  */
 export function extractVendor(transcript: string): string | undefined {
-  const koMatch = transcript.match(/([^\s]+(?:\s+जी|\s+ट्रेडर्स|\s+भट्ठा|\s+ब्रदर्स)?)\s+को/i);
+  const koMatch = transcript.match(/([^\s]+(?:\s+(?:जी|ji|ट्रेडर्स|traders|भट्ठा|ब्रदर्स|brothers))?)\s+(?:को|ko(?:\s|$))/i);
   if (koMatch && koMatch[1]) {
     const candidate = koMatch[1].trim();
-    if (!['आज', 'कल', 'पैसे', 'रुपये', 'सब'].includes(candidate)) {
+    if (!['आज', 'कल', 'पैसे', 'रुपये', 'रुपए', 'सब', 'aaj', 'kal', 'paise', 'rupaye'].includes(candidate.toLowerCase())) {
+      if (candidate.includes('शर्मा')) return 'शर्मा जी (Sharma Traders)';
+      if (candidate.includes('पटेल')) return 'पटेल इलेक्ट्रिकल्स (Patel Electricals)';
+      if (candidate.includes('यादव')) return 'यादव ईंट भट्ठा (Yadav Bricks)';
       return candidate;
     }
   }
@@ -261,7 +269,106 @@ export function extractVendor(transcript: string): string | undefined {
 export function extractDescription(transcript: string, matchedVendor?: string): { description: string; categoryId: string; categoryNameHi: string } {
   const lower = transcript.toLowerCase();
 
-  // 1. Priority A: Check if a known material or service keyword is present
+  // 1. Priority A: Check for explicit "[purpose] के लिए" or "[purpose] ke liye" clause
+  const keLiyeRegex = /(?:के\s*(?:लिए|लिये)|ke\s*(?:liye|lie)|k\s*liye)(?:\s|$|[.,!])/gi;
+  let match;
+  while ((match = keLiyeRegex.exec(transcript)) !== null) {
+    const marker = match[0].trim();
+    const prefix = transcript.slice(0, match.index).trim();
+    // If there is vendor "को" before this, only take what is after "को"
+    const prefixAfterKo = prefix.split(/(?:\s+को|\s+ko(?:\s|$))\s*/i).pop() || prefix;
+    // Strip amounts, currency symbols, and commas so amounts like "₹500000" never become candidate tokens
+    const sanitizedPrefix = prefixAfterKo.replace(/(?:₹|rs\.?|inr)?\s*[\d,]+(?:\.\d+)?/gi, ' ').trim();
+    const tokens = sanitizedPrefix
+      .split(/\s+/)
+      .map((t) => t.trim().replace(/[.,!₹]/g, ''))
+      .filter(Boolean);
+
+    // Collect candidate words before "के लिए" (up to 3 words)
+    const candidateTokens: string[] = [];
+    for (let i = tokens.length - 1; i >= 0 && candidateTokens.length < 3; i--) {
+      const tok = tokens[i].toLowerCase();
+      if (/^\d+$/.test(tok)) break;
+      if (STOP_WORDS.has(tok)) break;
+      candidateTokens.unshift(tokens[i]);
+    }
+
+    if (candidateTokens.length > 0) {
+      const candidateStr = candidateTokens.join(' ');
+      const candidateLower = candidateStr.toLowerCase();
+
+      // Check if candidate is just a payment term (e.g. "यूपीआई के लिए")
+      const isPaymentTerm = candidateTokens.some((tok) => PAYMENT_TERMS.has(tok.toLowerCase()));
+      if (isPaymentTerm) {
+        continue;
+      }
+
+      // Raw bulk construction materials return their specific material label (e.g. "सीमेंट के लिए" -> "सीमेंट")
+      const RAW_MATERIALS = new Set([
+        'सीमेंट', 'सीमेन्ट', 'cement', 'सरिया', 'लोहा', 'स्टील', 'steel', 'iron', 'तार',
+        'ईंट', 'ईट', 'bricks', 'भट्ठा', 'रेत', 'बालू', 'गिट्टी', 'बदरपुर', 'क्रशर', 'sand', 'aggregate'
+      ]);
+
+      if (RAW_MATERIALS.has(candidateLower)) {
+        for (const item of PURPOSE_DICTIONARY) {
+          for (const kw of item.keywords) {
+            if (candidateLower === kw) {
+              return {
+                description: item.displayLabel,
+                categoryId: item.categoryId,
+                categoryNameHi: item.categoryNameHi,
+              };
+            }
+          }
+        }
+      }
+
+      // Purpose/action phrase (e.g. "सामान लाने के लिए", "खाने के लिए", "saman laney ke liye")
+      const fullPhrase = `${candidateStr} ${marker}`;
+
+      // Determine category based on candidate keywords or context
+      let categoryId = 'cat-other-construction';
+      let categoryNameHi = 'अन्य निर्माण खर्च';
+
+      // Check PURPOSE_DICTIONARY for matching category
+      for (const item of PURPOSE_DICTIONARY) {
+        for (const kw of item.keywords) {
+          if (candidateLower === kw || candidateLower.includes(kw)) {
+            categoryId = item.categoryId;
+            categoryNameHi = item.categoryNameHi;
+            break;
+          }
+        }
+      }
+
+      if (
+        /खाना|खाने|नाश्ता|नाश्ते|चाय|लंच|डिनर|भोजन|food|snacks|lunch|dinner|breakfast|khane/i.test(candidateLower)
+      ) {
+        categoryId = 'cat-fnb';
+        categoryNameHi = 'खान-पान सामान (F&B)';
+      } else if (
+        (matchedVendor && /मजदूर|लेबर|labour|mazdoor/i.test(matchedVendor)) ||
+        /मजदूर|लेबर|मिस्त्री|कारीगर|labour|mazdoor/i.test(transcript)
+      ) {
+        categoryId = 'cat-labour';
+        categoryNameHi = 'मजदूरी और ठेकेदार';
+      } else if (
+        /सामान|गाड़ी|भाड़ा|डीजल|लोडिंग|transport|saman/i.test(candidateLower) ||
+        /गाड़ी|भाड़ा|टेम्पो/i.test(transcript)
+      ) {
+        categoryId = 'cat-transport';
+        categoryNameHi = 'ट्रांसपोर्ट और भाड़ा';
+      }
+
+      return {
+        description: fullPhrase,
+        categoryId,
+        categoryNameHi,
+      };
+    }
+  }
+
+  // 2. Priority B: Check if a known material or service keyword is present
   for (const item of PURPOSE_DICTIONARY) {
     for (const kw of item.keywords) {
       if (lower.includes(kw)) {
@@ -274,29 +381,12 @@ export function extractDescription(transcript: string, matchedVendor?: string): 
     }
   }
 
-  // 2. Priority B: Check for "[something] के लिए" or "[something] का बिल",
-  // BUT sanitize to remove any amount digits, payment terms, or stop words
-  const keLiyeMatch = lower.match(/(?:को\s+)?([^\s]+(?:\s+[^\s]+)?)\s+के\s+लिए/i);
-  if (keLiyeMatch && keLiyeMatch[1]) {
-    const candidateTokens = keLiyeMatch[1]
-      .split(/\s+/)
-      .filter((tok) => !STOP_WORDS.has(tok) && !/^\d+$/.test(tok));
-
-    if (candidateTokens.length > 0) {
-      const candidateStr = candidateTokens.join(' ');
-      return {
-        description: candidateStr.charAt(0).toUpperCase() + candidateStr.slice(1),
-        categoryId: 'cat-other-construction',
-        categoryNameHi: 'अन्य निर्माण खर्च',
-      };
-    }
-  }
-
   // 3. Priority C: Remove vendor, amounts, payment terms, and stop words, then pick remaining words
   const words = transcript.split(/\s+/);
   const filteredWords = words.filter((w) => {
     const cleanWord = w.toLowerCase().replace(/[.,!]/g, '');
     if (STOP_WORDS.has(cleanWord)) return false;
+    if (PAYMENT_TERMS.has(cleanWord)) return false;
     if (/^\d+$/.test(cleanWord)) return false;
     if (matchedVendor && matchedVendor.toLowerCase().includes(cleanWord)) return false;
     return true;

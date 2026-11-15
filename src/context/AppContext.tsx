@@ -20,8 +20,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<UserProfile>(DEFAULT_PROFILES[0]); // Defaults to Father
-  const [language, setLanguage] = useState<'hi' | 'en'>('hi'); // Defaults to Hindi
+  const [currentUser, setCurrentUserState] = useState<UserProfile>(DEFAULT_PROFILES[0]); // Defaults to Krishna Murari Tiwari (Father)
+  const [language, setLanguageState] = useState<'hi' | 'en'>('hi'); // Defaults to Hindi
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncStats, setSyncStats] = useState<SyncStats>({
@@ -31,6 +31,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     lastSyncAt: null,
     isOnline: true,
   });
+
+  // Restore remembered device user profile and language on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedUserId = localStorage.getItem('souldive_user_id');
+      if (savedUserId) {
+        const found = DEFAULT_PROFILES.find((p) => p.id === savedUserId);
+        if (found) {
+          setCurrentUserState(found);
+        }
+      }
+      const savedLang = localStorage.getItem('souldive_language');
+      if (savedLang === 'hi' || savedLang === 'en') {
+        setLanguageState(savedLang);
+      }
+    }
+  }, []);
+
+  const setCurrentUser = (user: UserProfile) => {
+    setCurrentUserState(user);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('souldive_user_id', user.id);
+    }
+  };
+
+  const setLanguage = (lang: 'hi' | 'en') => {
+    setLanguageState(lang);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('souldive_language', lang);
+    }
+  };
 
   // 1. Initialize local DB and listen to online/offline state
   useEffect(() => {

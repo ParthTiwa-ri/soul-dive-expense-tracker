@@ -32,7 +32,13 @@
 
 During interactive development with the user, several key product decisions were made. **Respect these rules strictly:**
 
-### ❌ What NOT To Do (Rejected Features):
+### User Profiles & Device Memory:
+- **Two Core Users:**
+  1. **कृष्ण मुरारी तिवारी (पिताजी)** (`role: 'contributor'`, `preferredLanguage: 'hi'`) — Father's on-site voice-first interface.
+  2. **Parth Tiwari (मालिक / Admin)** (`role: 'owner'`, `preferredLanguage: 'en'`) — Owner's ledger, approvals, and budget interface.
+- **Device-Remembered Identity (`localStorage`):**
+  - Selected profile is automatically remembered per device (`souldive_user_id`). Once selected on Father's phone, it permanently stays on his profile without requiring login or passwords.
+  - Selected language is also remembered (`souldive_language`).
 1. **NO Daily Cash Drawer Reconciliation ("दैनिक नकद मिलान"):**
    - The user explicitly requested to remove the cash drawer / counter cash reconciliation feature ("*for now i dont want this feature now*", "*you removed whole tab , approve transaction also*").
    - **Do NOT reintroduce cash drawer reconciliation**, cash counting calculators, opening/closing balance inputs, or cash session modals.
@@ -231,3 +237,4 @@ Compiles Next.js with zero errors.
 
 ---
 *Created on 2026-11-15 for seamless handover to subsequent agents.*
+

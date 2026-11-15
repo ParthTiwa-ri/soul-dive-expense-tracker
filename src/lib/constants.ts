@@ -3,7 +3,7 @@ import { Category, ProjectPhase, UserProfile, PaymentMethod } from '@/types';
 export const DEFAULT_PROFILES: UserProfile[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
-    fullName: 'पिताजी (Father)',
+    fullName: 'कृष्ण मुरारी तिवारी (पिताजी)',
     phone: '+91 98765 43210',
     role: 'contributor',
     isActive: true,
@@ -11,19 +11,11 @@ export const DEFAULT_PROFILES: UserProfile[] = [
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
-    fullName: 'मालिक (Owner / Admin)',
+    fullName: 'Parth Tiwari (मालिक / Admin)',
     phone: '+91 98765 12345',
     role: 'owner',
     isActive: true,
     preferredLanguage: 'en',
-  },
-  {
-    id: '33333333-3333-3333-3333-333333333333',
-    fullName: 'साइट मैनेजर (Manager)',
-    phone: '+91 98765 67890',
-    role: 'manager',
-    isActive: true,
-    preferredLanguage: 'hi',
   },
 ];
 

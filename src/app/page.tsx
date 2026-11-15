@@ -24,6 +24,13 @@ export default function HomePage() {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [manualInitialData, setManualInitialData] = useState<Partial<Expense> | null>(null);
 
+  // If current active tab is approvals but user is contributor (Father), safely fallback to entry tab
+  React.useEffect(() => {
+    if (currentUser.role !== 'owner' && activeTab === 'approvals') {
+      setActiveTab('entry');
+    }
+  }, [currentUser.role, activeTab]);
+
   // Live reactive query directly linked to Dexie IndexedDB
   const liveExpenses = useLiveQuery(
     async () => {

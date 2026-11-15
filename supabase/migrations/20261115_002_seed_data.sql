@@ -67,10 +67,12 @@ ON CONFLICT DO NOTHING;
 
 -- 5. Seed Initial Profiles for Development / Testing
 INSERT INTO profiles (id, full_name, phone, role, preferred_language) VALUES
-('11111111-1111-1111-1111-111111111111', 'Father (पिताजी)', '+91 98765 43210', 'contributor', 'hi'),
-('22222222-2222-2222-2222-222222222222', 'Owner / Admin (मालिक)', '+91 98765 12345', 'owner', 'en'),
-('33333333-3333-3333-3333-333333333333', 'Site Manager (मैनेजर)', '+91 98765 67890', 'manager', 'hi')
-ON CONFLICT (id) DO NOTHING;
+('11111111-1111-1111-1111-111111111111', 'Krishna Murari Tiwari (कृष्ण मुरारी तिवारी)', '+91 98765 43210', 'contributor', 'hi'),
+('22222222-2222-2222-2222-222222222222', 'Parth Tiwari (मालिक / Admin)', '+91 98765 12345', 'owner', 'en')
+ON CONFLICT (id) DO UPDATE SET
+  full_name = EXCLUDED.full_name,
+  role = EXCLUDED.role,
+  preferred_language = EXCLUDED.preferred_language;
 
 -- 6. Common Vendors Seed
 INSERT INTO vendors (name, phone, notes) VALUES

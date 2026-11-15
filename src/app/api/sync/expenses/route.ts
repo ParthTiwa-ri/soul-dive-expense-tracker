@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseServerClient, isSupabaseConfigured } from '../../../../lib/supabase';
 
-// Server-side in-memory ledger fallback for local development & demonstration
-// before production Supabase environment variables are provided by the owner.
+// In-memory fallback ledger for local development before Supabase keys are configured
 interface StoredServerExpense {
   id: string;
   clientUuid: string;
@@ -30,8 +30,7 @@ interface StoredServerExpense {
   receiptDataUrl?: string;
 }
 
-// Global server cache for development
-const serverLedger: Map<string, StoredServerExpense> = new Map();
+const localFallbackLedger: Map<string, StoredServerExpense> = new Map();
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,9 +45,77 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'amountPaise must be greater than zero' }, { status: 400 });
     }
 
-    // 1. Idempotency Check: if this clientUuid has already been synced, return existing server record
-    if (serverLedger.has(clientUuid)) {
-      const existing = serverLedger.get(clientUuid)!;
+    // 1. If Supabase is configured, use production PostgreSQL database
+    const supabase = getSupabaseServerClient();
+    if (supabase) {
+      try {
+        // Idempotency check: see if client_uuid already exists in Supabase
+        const { data: existing } = await supabase
+          .from('expenses')
+          .select('id, client_uuid, created_at')
+          .eq('client_uuid', clientUuid)
+          .maybeSingle();
+
+        if (existing) {
+          return NextResponse.json({
+            id: existing.id,
+            clientUuid: existing.client_uuid,
+            serverCreatedAt: existing.created_at,
+            message: 'Idempotent hit: Record already synchronized',
+          });
+        }
+
+        // Insert new record into Supabase
+        const insertPayload = {
+          client_uuid: clientUuid,
+          amount_paise: body.amountPaise,
+          currency: body.currency || 'INR',
+          description: body.description || '',
+          category_id: body.categoryId,
+          category_name: body.categoryName,
+          vendor_id: body.vendorId,
+          vendor_name: body.vendorName,
+          phase_id: body.phaseId,
+          payment_method: body.paymentMethod || 'cash',
+          payment_date: body.paymentDate || new Date().toISOString().split('T')[0],
+          payment_time: body.paymentTime,
+          paid_by_user_id: body.paidByUserId,
+          paid_by_name: body.paidByName,
+          submitted_by_user_id: body.submittedByUserId,
+          submitted_by_name: body.submittedByName,
+          notes: body.notes,
+          record_type: body.recordType || 'expense',
+          status: body.status || 'active',
+          verification_status: body.verificationStatus || 'pending',
+          device_created_at: body.deviceCreatedAt,
+          has_receipt: Boolean(body.hasReceipt),
+          receipt_data_url: body.receiptDataUrl,
+        };
+
+        const { data: inserted, error: insertError } = await supabase
+          .from('expenses')
+          .insert(insertPayload)
+          .select('id, client_uuid, created_at')
+          .single();
+
+        if (insertError) {
+          console.error('Supabase write error, falling back to local memory:', insertError);
+        } else if (inserted) {
+          return NextResponse.json({
+            id: inserted.id,
+            clientUuid: inserted.client_uuid,
+            serverCreatedAt: inserted.created_at,
+            status: 'synced',
+          });
+        }
+      } catch (dbErr) {
+        console.warn('Supabase request failed, using local ledger fallback:', dbErr);
+      }
+    }
+
+    // 2. Local In-Memory Fallback (when Supabase is not yet configured)
+    if (localFallbackLedger.has(clientUuid)) {
+      const existing = localFallbackLedger.get(clientUuid)!;
       return NextResponse.json({
         id: existing.id,
         clientUuid: existing.clientUuid,
@@ -57,7 +124,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Record new transaction
     const serverId = `srv-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const serverCreatedAt = new Date().toISOString();
 
@@ -89,7 +155,7 @@ export async function POST(req: NextRequest) {
       receiptDataUrl: body.receiptDataUrl,
     };
 
-    serverLedger.set(clientUuid, newExpense);
+    localFallbackLedger.set(clientUuid, newExpense);
 
     return NextResponse.json({
       id: serverId,
@@ -104,12 +170,34 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const records = Array.from(serverLedger.values()).sort(
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      const { data: records, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && records) {
+        return NextResponse.json({
+          totalCount: records.length,
+          records,
+          source: 'supabase',
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to fetch from Supabase:', err);
+    }
+  }
+
+  // Fallback to local memory ledger
+  const records = Array.from(localFallbackLedger.values()).sort(
     (a, b) => new Date(b.serverCreatedAt).getTime() - new Date(a.serverCreatedAt).getTime()
   );
+
   return NextResponse.json({
     totalCount: records.length,
     records,
+    source: 'local_memory',
   });
 }
-

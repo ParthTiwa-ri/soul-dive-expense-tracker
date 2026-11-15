@@ -39,10 +39,8 @@ export async function initializeLocalDatabase(): Promise<void> {
       await db.phases.bulkAdd(DEFAULT_PHASES);
     }
 
-    const profilesCount = await db.profiles.count();
-    if (profilesCount === 0) {
-      await db.profiles.bulkAdd(DEFAULT_PROFILES);
-    }
+    // Keep profiles up-to-date with current defaults
+    await db.profiles.bulkPut(DEFAULT_PROFILES);
 
     const vendorsCount = await db.vendors.count();
     if (vendorsCount === 0) {

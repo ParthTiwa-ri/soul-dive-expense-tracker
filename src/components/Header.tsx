@@ -63,7 +63,7 @@ export default function Header() {
                 const user = DEFAULT_PROFILES.find((p) => p.id === e.target.value);
                 if (user) setCurrentUser(user);
               }}
-              className="bg-slate-800 text-slate-200 text-xs font-medium rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-cyan-400 cursor-pointer max-w-[130px] truncate"
+              className="bg-slate-800 text-slate-200 text-xs font-medium rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-cyan-400 cursor-pointer max-w-[170px] sm:max-w-[210px] truncate"
             >
               {DEFAULT_PROFILES.map((p) => (
                 <option key={p.id} value={p.id}>

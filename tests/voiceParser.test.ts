@@ -43,6 +43,53 @@ describe('Hindi Voice Parser & Natural Language Extractor', () => {
     expect(extractPaymentMethod('फोनपे से 500 रुपये दिए')).toBe('upi');
     expect(extractPaymentMethod('बैंक खाते में ट्रांसफर किया')).toBe('bank_transfer');
   });
+
+  it('should accurately extract purpose "सामान लाने के लिए" when paying labourer (Image 2 test case)', () => {
+    const transcript = 'सामान लाने के लिए मजदूर को ₹400 दिए';
+    const result = parseVoiceTranscript(transcript);
+
+    expect(result.amountRupees).toBe(400);
+    expect(result.amountPaise).toBe(40000);
+    expect(result.description).toBe('सामान लाने के लिए');
+    expect(result.vendorName).toBe('मजदूर');
+    expect(result.paymentMethod).toBe('cash');
+    expect(result.categoryId).toBe('cat-labour');
+    expect(result.categoryName).toBe('मजदूरी और ठेकेदार');
+  });
+
+  it('should accurately extract amount and purpose "खाने के लिए" into F&B category (Image 1 test case)', () => {
+    const transcript = '₹500000 खाने के लिए दिए';
+    const result = parseVoiceTranscript(transcript);
+
+    expect(result.amountRupees).toBe(500000);
+    expect(result.amountPaise).toBe(50000000);
+    expect(result.description).toBe('खाने के लिए');
+    expect(result.description).not.toContain('500000');
+    expect(result.description).not.toContain('₹');
+    expect(result.paymentMethod).toBe('cash');
+    expect(result.categoryId).toBe('cat-fnb');
+    expect(result.categoryName).toBe('खान-पान सामान (F&B)');
+  });
+
+  it('should accurately extract purpose when recipient appears before purpose', () => {
+    const transcript = 'मजदूर को सामान लाने के लिए ₹400 दिए';
+    const result = parseVoiceTranscript(transcript);
+
+    expect(result.amountRupees).toBe(400);
+    expect(result.description).toBe('सामान लाने के लिए');
+    expect(result.vendorName).toBe('मजदूर');
+    expect(result.categoryId).toBe('cat-labour');
+  });
+
+  it('should handle Hinglish / Romanized Hindi: "saman laney ke liye mazdoor ko 400 diye"', () => {
+    const transcript = 'saman laney ke liye mazdoor ko 400 diye';
+    const result = parseVoiceTranscript(transcript);
+
+    expect(result.amountRupees).toBe(400);
+    expect(result.description).toBe('saman laney ke liye');
+    expect(result.vendorName).toBe('mazdoor');
+    expect(result.categoryId).toBe('cat-labour');
+  });
 });
 
 describe('Indian Currency Formatting (Paise to INR)', () => {
