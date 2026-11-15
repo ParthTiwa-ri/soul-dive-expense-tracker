@@ -51,7 +51,7 @@ export default function BottomNav({
     },
   ];
 
-  // Filter tabs: Father (contributor) sees 3 simple tabs, Parth (owner) sees all 4 including Approvals
+  // Filter tabs: Contributor sees 3 simple tabs, Manu (owner) sees all 4 including Approvals
   const visibleTabs = allTabs.filter((tab) => !tab.requiresOwner || isOwner);
 
   return (

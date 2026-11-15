@@ -66,7 +66,7 @@ export async function compressImage(file: File): Promise<{ blob: Blob; dataUrl: 
 
 /**
  * Pulls newly synchronized expenses from the server / Supabase into local Dexie IndexedDB
- * so both users (Father and Parth) can see each other's expenses in real time.
+ * so both users (Father and Manu) can see each other's expenses in real time.
  */
 export async function pullRemoteExpenses(): Promise<number> {
   if (typeof window === 'undefined' || !navigator.onLine) {
@@ -127,7 +127,7 @@ export async function pullRemoteExpenses(): Promise<number> {
         await db.expenses.add(newExpense);
         pulledCount++;
       } else if (existing.syncStatus === 'synced') {
-        // If the other user updated the verification status (e.g. Parth approved it)
+        // If the other user updated the verification status (e.g. Manu approved it)
         const remoteStatus = r.verificationStatus || r.verification_status;
         if (remoteStatus && remoteStatus !== existing.verificationStatus) {
           await db.expenses.update(clientUuid, {

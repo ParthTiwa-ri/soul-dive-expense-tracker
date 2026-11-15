@@ -11,7 +11,7 @@ export const DEFAULT_PROFILES: UserProfile[] = [
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
-    fullName: 'Parth Tiwari',
+    fullName: 'Manu Shukla',
     phone: '+91 98765 12345',
     role: 'owner',
     isActive: true,

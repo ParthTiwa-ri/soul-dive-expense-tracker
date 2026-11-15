@@ -42,7 +42,7 @@ export async function initializeLocalDatabase(): Promise<void> {
     // Keep profiles up-to-date with current defaults
     await db.profiles.bulkPut(DEFAULT_PROFILES);
 
-    // Sanitize any previously saved names in existing expenses (strip "(पिताजी)", "(Father)", "(मालिक / Admin)", etc.)
+    // Sanitize any previously saved names in existing expenses
     await db.expenses.toCollection().modify((expense) => {
       let changed = false;
       if (expense.submittedByName && /\((पिताजी|Father|admin|owner|मालिक \/ Admin)\)/i.test(expense.submittedByName)) {
@@ -51,6 +51,18 @@ export async function initializeLocalDatabase(): Promise<void> {
       }
       if (expense.paidByName && /\((पिताजी|Father|admin|owner|मालिक \/ Admin)\)/i.test(expense.paidByName)) {
         expense.paidByName = expense.paidByName.replace(/\s*\((पिताजी|Father|admin|owner|मालिक \/ Admin)\)/gi, '').trim();
+        changed = true;
+      }
+      if (expense.submittedByName === 'Parth Tiwari') {
+        expense.submittedByName = 'Manu Shukla';
+        changed = true;
+      }
+      if (expense.paidByName === 'Parth Tiwari') {
+        expense.paidByName = 'Manu Shukla';
+        changed = true;
+      }
+      if (expense.verifiedByName === 'Parth Tiwari') {
+        expense.verifiedByName = 'Manu Shukla';
         changed = true;
       }
       return changed;
