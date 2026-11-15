@@ -16,7 +16,7 @@ import ApprovalView from '@/components/ApprovalView';
 import { Mic, Plus, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 
 export default function HomePage() {
-  const { language, isOnline, syncStats, triggerSync, isSyncing, currentUser } = useApp();
+  const { language, isOnline, syncStats, triggerSync, isSyncing, currentUser, syncVersion } = useApp();
   const isHindi = language === 'hi';
 
   const [activeTab, setActiveTab] = useState<'entry' | 'ledger' | 'dashboard' | 'approvals'>('entry');
@@ -42,7 +42,7 @@ export default function HomePage() {
         (a, b) => new Date(b.deviceCreatedAt).getTime() - new Date(a.deviceCreatedAt).getTime()
       );
     },
-    [],
+    [syncVersion],
     []
   );
 

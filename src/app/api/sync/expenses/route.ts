@@ -103,17 +103,24 @@ export async function POST(req: NextRequest) {
       try {
         const { data: existing } = await supabase
           .from('expenses')
-          .select('id, client_uuid, created_at, amount_paise, description, verification_status, status')
+          .select('*')
           .eq('client_uuid', clientUuid)
           .maybeSingle();
 
         if (existing) {
-          // If record exists, check if anything changed (edit or approval)
+          // Check if literally anything changed (amount, description, category, payment method, date, vendor, notes, receipt, verification)
           const isIdentical =
             Number(existing.amount_paise) === Number(body.amountPaise) &&
-            existing.description === (body.description || '') &&
-            existing.verification_status === (body.verificationStatus || 'pending') &&
-            existing.status === (body.status || 'active');
+            (existing.description || '') === (body.description || '') &&
+            (existing.verification_status || 'pending') === (body.verificationStatus || 'pending') &&
+            (existing.status || 'active') === (body.status || 'active') &&
+            (existing.payment_method || 'cash') === (body.paymentMethod || 'cash') &&
+            (existing.payment_date || '') === (body.paymentDate || '') &&
+            (existing.category_id || '') === (body.categoryId || '') &&
+            (existing.vendor_name || '') === (body.vendorName || '') &&
+            (existing.notes || '') === (body.notes || '') &&
+            Boolean(existing.has_receipt) === Boolean(body.hasReceipt) &&
+            (existing.receipt_data_url || '') === (body.receiptDataUrl || '');
 
           if (isIdentical) {
             return NextResponse.json({
@@ -174,9 +181,16 @@ export async function POST(req: NextRequest) {
       const existing = localFallbackLedger.get(clientUuid)!;
       const isIdentical =
         existing.amountPaise === body.amountPaise &&
-        existing.description === (body.description || '') &&
-        existing.verificationStatus === (body.verificationStatus || 'pending') &&
-        existing.status === (body.status || 'active');
+        (existing.description || '') === (body.description || '') &&
+        (existing.verificationStatus || 'pending') === (body.verificationStatus || 'pending') &&
+        (existing.status || 'active') === (body.status || 'active') &&
+        (existing.paymentMethod || 'cash') === (body.paymentMethod || 'cash') &&
+        (existing.paymentDate || '') === (body.paymentDate || '') &&
+        (existing.categoryId || '') === (body.categoryId || '') &&
+        (existing.vendorName || '') === (body.vendorName || '') &&
+        (existing.notes || '') === (body.notes || '') &&
+        Boolean(existing.hasReceipt) === Boolean(body.hasReceipt) &&
+        (existing.receiptDataUrl || '') === (body.receiptDataUrl || '');
 
       if (isIdentical) {
         return NextResponse.json({

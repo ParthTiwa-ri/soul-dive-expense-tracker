@@ -75,10 +75,16 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
     if (!confirm(confirmText)) return;
 
     try {
-      // 1. Delete permanently from local Dexie IndexedDB
-      await db.expenses.delete(clientUuid);
-      // 2. Delete permanently from server / Supabase ledger
-      await deleteRemoteExpense(clientUuid);
+      if (typeof window !== 'undefined' && navigator.onLine) {
+        await db.expenses.delete(clientUuid);
+        await deleteRemoteExpense(clientUuid);
+      } else {
+        // Offline tombstone: disappears immediately from UI, deletes on server when back online
+        await db.expenses.update(clientUuid, {
+          status: 'voided',
+          syncStatus: 'pending',
+        });
+      }
       setSelectedExpense(null);
       if (onRefresh) onRefresh();
     } catch (err) {

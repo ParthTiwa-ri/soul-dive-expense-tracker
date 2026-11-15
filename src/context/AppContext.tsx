@@ -14,6 +14,7 @@ interface AppContextType {
   setLanguage: (lang: 'hi' | 'en') => void;
   isOnline: boolean;
   syncStats: SyncStats;
+  syncVersion: number;
   triggerSync: () => Promise<void>;
   isSyncing: boolean;
   isSuperAdmin: boolean;
@@ -28,6 +29,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<'hi' | 'en'>('hi'); // Defaults to Hindi
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncVersion, setSyncVersion] = useState<number>(0);
   const [syncStats, setSyncStats] = useState<SyncStats>({
     pendingCount: 0,
     syncingCount: 0,
@@ -134,6 +136,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         failedCount: failed,
         isOnline: typeof window !== 'undefined' ? navigator.onLine : true,
       }));
+      setSyncVersion((v) => v + 1);
     } catch (e) {
       // IndexedDB might not be ready yet
     }
@@ -141,19 +144,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refreshSyncStats();
-    const interval = setInterval(refreshSyncStats, 3000);
+    const interval = setInterval(refreshSyncStats, 2000);
 
     // Initial background sync on startup if online
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       triggerSync();
     }
 
-    // Adaptive background fallback sync every 8 seconds
+    // Adaptive background fallback sync every 4 seconds
     const periodicSync = setInterval(() => {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         triggerSync();
       }
-    }, 8000);
+    }, 4000);
 
     return () => {
       clearInterval(interval);
@@ -161,12 +164,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // 3. Supabase Realtime Broadcast & CDC for instant, 0-refresh multi-device synchronization
+  // 3. Same-device cross-tab instant broadcast (< 10ms via HTML5 BroadcastChannel)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
+    const localTab = new BroadcastChannel('souldive_tab_sync');
+    localTab.onmessage = async (event) => {
+      try {
+        if (event.data?.type === 'expense_deleted' && event.data.clientUuid) {
+          await db.expenses.delete(event.data.clientUuid);
+          await refreshSyncStats();
+        } else {
+          await triggerSync();
+        }
+      } catch (err) {
+        console.warn('Local cross-tab sync error:', err);
+      }
+    };
+    return () => localTab.close();
+  }, []);
+
+  // 4. Supabase Realtime Broadcast & CDC for instant, 0-refresh multi-device synchronization
   useEffect(() => {
     if (!supabase) return;
 
     try {
-      const channel = supabase.channel('expenses_live');
+      const channel = supabase.channel('expenses_live_shared');
 
       // Instant client-to-client broadcast (< 50ms)
       channel.on('broadcast', { event: 'expense_updated' }, async () => {
@@ -267,6 +289,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLanguage,
         isOnline,
         syncStats,
+        syncVersion,
         triggerSync,
         isSyncing,
         isSuperAdmin,

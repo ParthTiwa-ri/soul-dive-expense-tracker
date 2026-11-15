@@ -225,8 +225,15 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
     if (!confirm(confirmText)) return;
 
     try {
-      await db.expenses.delete(clientUuid);
-      await deleteRemoteExpense(clientUuid);
+      if (typeof window !== 'undefined' && navigator.onLine) {
+        await db.expenses.delete(clientUuid);
+        await deleteRemoteExpense(clientUuid);
+      } else {
+        await db.expenses.update(clientUuid, {
+          status: 'voided',
+          syncStatus: 'pending',
+        });
+      }
       setSelectedExpense(null);
     } catch (err) {
       console.error('Failed to delete expense:', err);

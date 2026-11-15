@@ -1,6 +1,7 @@
 import { db } from './db';
 import { Expense } from '@/types';
 import { supabase } from './supabase';
+import { DEFAULT_CATEGORIES } from './constants';
 
 export interface SyncStats {
   pendingCount: number;
@@ -65,40 +66,58 @@ export async function compressImage(file: File): Promise<{ blob: Blob; dataUrl: 
   });
 }
 
+// Local cross-tab broadcast channel (standard HTML5 Web API for sub-10ms same-origin tab sync)
+const localTabBroadcast =
+  typeof window !== 'undefined' && 'BroadcastChannel' in window
+    ? new BroadcastChannel('souldive_tab_sync')
+    : null;
+
 /**
- * Broadcasts an expense modification event over Supabase Realtime (< 50ms)
- * to instantly notify all other connected devices without waiting for polling.
+ * Broadcasts an expense modification event over both local BroadcastChannel (cross-tab)
+ * and Supabase Realtime (cross-device) to instantly update all open screens without refresh.
  */
 export function broadcastExpenseChange() {
-  if (typeof window !== 'undefined' && supabase) {
+  if (typeof window !== 'undefined') {
+    // 1. Same-device cross-tab sync (< 10ms)
     try {
-      const channel = supabase.channel('expenses_live');
-      channel.send({
-        type: 'broadcast',
-        event: 'expense_updated',
-        payload: { timestamp: Date.now() },
-      });
-    } catch (e) {
-      // Non-blocking
+      localTabBroadcast?.postMessage({ type: 'expense_updated', timestamp: Date.now() });
+    } catch (e) {}
+
+    // 2. Cross-device cloud sync via Supabase (< 80ms)
+    if (supabase) {
+      try {
+        const channel = supabase.channel('expenses_live_shared');
+        channel.send({
+          type: 'broadcast',
+          event: 'expense_updated',
+          payload: { timestamp: Date.now() },
+        });
+      } catch (e) {}
     }
   }
 }
 
 /**
- * Broadcasts an expense deletion event over Supabase Realtime (< 50ms)
+ * Broadcasts an expense deletion event over local BroadcastChannel and Supabase Realtime
  * so all other connected phones/laptops immediately remove the record.
  */
 export function broadcastExpenseDelete(clientUuid: string) {
-  if (typeof window !== 'undefined' && supabase) {
+  if (typeof window !== 'undefined') {
+    // 1. Same-device cross-tab sync (< 10ms)
     try {
-      const channel = supabase.channel('expenses_live');
-      channel.send({
-        type: 'broadcast',
-        event: 'expense_deleted',
-        payload: { clientUuid, timestamp: Date.now() },
-      });
-    } catch (e) {
-      // Non-blocking
+      localTabBroadcast?.postMessage({ type: 'expense_deleted', clientUuid, timestamp: Date.now() });
+    } catch (e) {}
+
+    // 2. Cross-device cloud sync via Supabase (< 80ms)
+    if (supabase) {
+      try {
+        const channel = supabase.channel('expenses_live_shared');
+        channel.send({
+          type: 'broadcast',
+          event: 'expense_deleted',
+          payload: { clientUuid, timestamp: Date.now() },
+        });
+      } catch (e) {}
     }
   }
 }
@@ -161,6 +180,10 @@ export async function pullRemoteExpenses(): Promise<number> {
 
       const existing = await db.expenses.get(clientUuid);
 
+      const defaultCat = DEFAULT_CATEGORIES.find(c => c.id === (r.categoryId || r.category_id));
+      const categoryNameHi = r.categoryNameHi || r.category_name_hi || defaultCat?.nameHi || 'अन्य निर्माण खर्च';
+      const categoryNameEn = r.categoryName || r.category_name || defaultCat?.nameEn || 'Other Construction Expenses';
+
       // If record does not exist locally (e.g. logged on the other person's phone)
       if (!existing) {
         const newExpense: Expense = {
@@ -169,9 +192,9 @@ export async function pullRemoteExpenses(): Promise<number> {
           amountPaise: Number(r.amountPaise || r.amount_paise),
           currency: r.currency || 'INR',
           description: r.description || '',
-          categoryId: r.categoryId || r.category_id || 'cat-other-construction',
-          categoryName: r.categoryName || r.category_name,
-          categoryNameHi: r.categoryNameHi || r.category_name_hi,
+          categoryId: r.categoryId || r.category_id || defaultCat?.id || 'cat-other-construction',
+          categoryName: categoryNameEn,
+          categoryNameHi: categoryNameHi,
           vendorId: r.vendorId || r.vendor_id,
           vendorName: r.vendorName || r.vendor_name,
           phaseId: r.phaseId || r.phase_id || 'phase-construction',
@@ -204,30 +227,40 @@ export async function pullRemoteExpenses(): Promise<number> {
         const remoteDesc = r.description || '';
         const remoteStatus = r.verificationStatus || r.verification_status;
         const remoteRecordStatus = r.status || 'active';
+        const remoteCatId = r.categoryId || r.category_id;
+        const remoteVendor = r.vendorName !== undefined ? r.vendorName : r.vendor_name;
+        const remotePaymentMethod = r.paymentMethod || r.payment_method;
+        const remotePaymentDate = r.paymentDate || r.payment_date;
+        const remoteHasReceipt = r.hasReceipt !== undefined ? Boolean(r.hasReceipt) : (r.has_receipt !== undefined ? Boolean(r.has_receipt) : undefined);
+        const remoteReceiptUrl = r.receiptDataUrl !== undefined ? r.receiptDataUrl : r.receipt_data_url;
 
-        // Check if remote has updates (e.g. edited or approved on the other phone/laptop)
+        // Check if remote has updates across ANY field
         const hasChanged =
           (remoteAmount > 0 && remoteAmount !== existing.amountPaise) ||
           (remoteDesc && remoteDesc !== existing.description) ||
           (remoteStatus && remoteStatus !== existing.verificationStatus) ||
           (remoteRecordStatus && remoteRecordStatus !== existing.status) ||
-          (r.categoryName && r.categoryName !== existing.categoryName) ||
-          (r.vendorName !== undefined && r.vendorName !== existing.vendorName) ||
+          (remoteCatId && remoteCatId !== existing.categoryId) ||
+          (remoteVendor !== undefined && remoteVendor !== existing.vendorName) ||
+          (remotePaymentMethod && remotePaymentMethod !== existing.paymentMethod) ||
+          (remotePaymentDate && remotePaymentDate !== existing.paymentDate) ||
+          (remoteHasReceipt !== undefined && remoteHasReceipt !== existing.hasReceipt) ||
+          (remoteReceiptUrl !== undefined && remoteReceiptUrl !== existing.receiptDataUrl) ||
           (r.notes !== undefined && r.notes !== existing.notes);
 
         if (hasChanged) {
           await db.expenses.update(clientUuid, {
             amountPaise: remoteAmount > 0 ? remoteAmount : existing.amountPaise,
             description: remoteDesc || existing.description,
-            categoryId: r.categoryId || r.category_id || existing.categoryId,
-            categoryName: r.categoryName || r.category_name || existing.categoryName,
-            categoryNameHi: r.categoryNameHi || r.category_name_hi || existing.categoryNameHi,
+            categoryId: remoteCatId || existing.categoryId,
+            categoryName: categoryNameEn,
+            categoryNameHi: categoryNameHi,
             vendorId: r.vendorId || r.vendor_id || existing.vendorId,
-            vendorName: r.vendorName || r.vendor_name || existing.vendorName,
+            vendorName: remoteVendor !== undefined ? remoteVendor : existing.vendorName,
             phaseId: r.phaseId || r.phase_id || existing.phaseId,
             phaseName: r.phaseName || r.phase_name || existing.phaseName,
-            paymentMethod: r.paymentMethod || r.payment_method || existing.paymentMethod,
-            paymentDate: r.paymentDate || r.payment_date || existing.paymentDate,
+            paymentMethod: remotePaymentMethod || existing.paymentMethod,
+            paymentDate: remotePaymentDate || existing.paymentDate,
             paymentTime: r.paymentTime || r.payment_time || existing.paymentTime,
             notes: r.notes !== undefined ? r.notes : existing.notes,
             status: remoteRecordStatus,
@@ -235,8 +268,8 @@ export async function pullRemoteExpenses(): Promise<number> {
             verifiedByUserId: r.verifiedByUserId || r.verified_by_user_id || existing.verifiedByUserId,
             verifiedByName: r.verifiedByName || r.verified_by_name || existing.verifiedByName,
             verifiedAt: r.verifiedAt || r.verified_at || existing.verifiedAt,
-            hasReceipt: r.hasReceipt !== undefined ? Boolean(r.hasReceipt) : (r.has_receipt !== undefined ? Boolean(r.has_receipt) : existing.hasReceipt),
-            receiptDataUrl: r.receiptDataUrl || r.receipt_data_url || existing.receiptDataUrl,
+            hasReceipt: remoteHasReceipt !== undefined ? remoteHasReceipt : existing.hasReceipt,
+            receiptDataUrl: remoteReceiptUrl !== undefined ? remoteReceiptUrl : existing.receiptDataUrl,
           });
           pulledCount++;
         }
@@ -338,6 +371,7 @@ export async function syncPendingExpenses(): Promise<{ syncedCount: number; fail
       if (record.status === 'voided') {
         // Once server acknowledges deletion/void, remove completely from local Dexie database
         await db.expenses.delete(record.clientUuid);
+        broadcastExpenseDelete(record.clientUuid);
       } else {
         // Only mark synced after explicit server confirmation
         await db.expenses.update(record.clientUuid, {
