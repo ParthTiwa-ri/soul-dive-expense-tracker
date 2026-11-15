@@ -182,27 +182,37 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {/* Approval Status Badge */}
                 {expense.verificationStatus === 'verified' ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                     <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
                     {isHindi ? 'मंजूर' : 'Approved'}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
                     <Clock className="w-2.5 h-2.5 text-amber-600" />
-                    {isHindi ? 'मंजूरी बाकी' : 'Pending Approval'}
+                    {isHindi ? 'बाकी' : 'Pending'}
                   </span>
                 )}
 
-                {/* Cloud Sync Status */}
-                <span className="text-[10px] text-slate-400 font-medium ml-1">
-                  {isSynced ? (
-                    <span className="text-slate-400">क्लाउड सिंक ✓</span>
-                  ) : isFailed ? (
-                    <span className="text-rose-600 font-semibold">सिंक विफल</span>
-                  ) : (
-                    <span className="text-amber-600 font-semibold">फोन में सेव</span>
-                  )}
-                </span>
+                {/* Cloud Sync Status: Silent when synced, amber dot when offline, red alert when failed */}
+                {!isSynced && !isFailed && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-in fade-in"
+                    title={isHindi ? 'फोन में सेव (इंटरनेट मिलने पर सिंक होगा)' : 'Local Only (Pending Sync)'}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <span>{isHindi ? 'फोन में सेव' : 'Local'}</span>
+                  </span>
+                )}
+
+                {isFailed && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
+                    title={isHindi ? 'सिंक विफल (दोबारा प्रयास होगा)' : 'Sync Failed'}
+                  >
+                    <AlertTriangle className="w-2.5 h-2.5 text-rose-500" />
+                    <span>{isHindi ? 'सिंक विफल' : 'Failed'}</span>
+                  </span>
+                )}
 
                 {isVoided && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
