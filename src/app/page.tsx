@@ -1,19 +1,51 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
 import { db } from '@/lib/db';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
-import VoiceRecorderModal from '@/components/VoiceRecorderModal';
-import QuickExpenseModal from '@/components/QuickExpenseModal';
 import RecentExpensesList from '@/components/RecentExpensesList';
-import LedgerView from '@/components/LedgerView';
-import DashboardView from '@/components/DashboardView';
-import ApprovalView from '@/components/ApprovalView';
-import { Mic, Plus, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { Mic, Plus, CloudOff, RefreshCw, Sparkles } from 'lucide-react';
+
+// Lazy-load heavy components on demand so initial page load and LCP are instantaneous (< 1s)
+const DashboardView = dynamic(() => import('@/components/DashboardView'), {
+  ssr: false,
+  loading: () => (
+    <div className="p-8 text-center text-xs text-slate-400 animate-pulse">
+      लोड हो रहा है...
+    </div>
+  ),
+});
+
+const LedgerView = dynamic(() => import('@/components/LedgerView'), {
+  ssr: false,
+  loading: () => (
+    <div className="p-8 text-center text-xs text-slate-400 animate-pulse">
+      लोड हो रहा है...
+    </div>
+  ),
+});
+
+const ApprovalView = dynamic(() => import('@/components/ApprovalView'), {
+  ssr: false,
+  loading: () => (
+    <div className="p-8 text-center text-xs text-slate-400 animate-pulse">
+      लोड हो रहा है...
+    </div>
+  ),
+});
+
+const VoiceRecorderModal = dynamic(() => import('@/components/VoiceRecorderModal'), {
+  ssr: false,
+});
+
+const QuickExpenseModal = dynamic(() => import('@/components/QuickExpenseModal'), {
+  ssr: false,
+});
 
 export default function HomePage() {
   const { language, isOnline, syncStats, triggerSync, isSyncing, currentUser, syncVersion } = useApp();

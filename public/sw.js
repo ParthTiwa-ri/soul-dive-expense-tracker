@@ -31,19 +31,28 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Do not intercept non-GET or API sync calls (those are handled by IndexedDB sync engine)
-  if (event.request.method !== 'GET' || event.request.url.includes('/api/')) {
+  // Only handle standard http/https schemes
+  if (!event.request.url.startsWith('http')) {
+    return;
+  }
+
+  // Do not intercept non-GET, internal API sync, or Supabase realtime/REST traffic
+  if (
+    event.request.method !== 'GET' ||
+    event.request.url.includes('/api/') ||
+    event.request.url.includes('supabase.co')
+  ) {
     return;
   }
 
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+            cache.put(event.request, responseToCache).catch(() => {});
+          }).catch(() => {});
         }
         return networkResponse;
       })

@@ -128,15 +128,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const pending = await db.expenses.where('syncStatus').equals('pending').count();
       const syncing = await db.expenses.where('syncStatus').equals('syncing').count();
       const failed = await db.expenses.where('syncStatus').equals('failed').count();
+      const currentOnline = typeof window !== 'undefined' ? navigator.onLine : true;
 
-      setSyncStats((prev) => ({
-        ...prev,
-        pendingCount: pending,
-        syncingCount: syncing,
-        failedCount: failed,
-        isOnline: typeof window !== 'undefined' ? navigator.onLine : true,
-      }));
-      setSyncVersion((v) => v + 1);
+      setSyncStats((prev) => {
+        if (
+          prev.pendingCount === pending &&
+          prev.syncingCount === syncing &&
+          prev.failedCount === failed &&
+          prev.isOnline === currentOnline
+        ) {
+          return prev; // No state mutation, zero unnecessary re-renders
+        }
+        setSyncVersion((v) => v + 1);
+        return {
+          ...prev,
+          pendingCount: pending,
+          syncingCount: syncing,
+          failedCount: failed,
+          isOnline: currentOnline,
+        };
+      });
     } catch (e) {
       // IndexedDB might not be ready yet
     }
@@ -144,19 +155,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refreshSyncStats();
-    const interval = setInterval(refreshSyncStats, 2000);
+    const interval = setInterval(refreshSyncStats, 3000);
 
     // Initial background sync on startup if online
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       triggerSync();
     }
 
-    // Adaptive background fallback sync every 4 seconds
+    // Adaptive background fallback sync every 15 seconds (WebSockets already deliver sub-50ms instant updates)
     const periodicSync = setInterval(() => {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         triggerSync();
       }
-    }, 4000);
+    }, 15000);
 
     return () => {
       clearInterval(interval);
