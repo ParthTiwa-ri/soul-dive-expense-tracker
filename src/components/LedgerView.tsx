@@ -543,18 +543,15 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                             )}
                           </div>
 
-                          <p className="text-xs text-slate-600 mt-0.5 font-medium">
-                            {formatDateIST(item.paymentDate, language)} • {item.paymentMethod.toUpperCase()}
-                            {item.vendorName ? ` • ${item.vendorName}` : ''}
-                          </p>
-
-                          <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500">
-                            <span className="font-bold text-slate-700">{item.paidByName}</span>
-                            <span>•</span>
-                            <span className="text-cyan-800 font-extrabold">
-                              {isHindi ? item.categoryNameHi || item.categoryName : item.categoryName}
+                          <p className="text-xs text-slate-500 mt-1 truncate">
+                            <span>{formatDateIST(item.paymentDate, language)}</span>
+                            <span> • </span>
+                            <span className="uppercase">{item.paymentMethod}</span>
+                            <span> • </span>
+                            <span className="text-slate-700 font-medium">
+                              {item.vendorName ? `${item.paidByName} (${item.vendorName})` : item.paidByName}
                             </span>
-                          </div>
+                          </p>
                         </div>
 
                         {/* Right: Amount & Status */}
