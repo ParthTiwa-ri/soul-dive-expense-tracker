@@ -79,7 +79,7 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
 
     try {
       await db.expenses.delete(clientUuid);
-      deleteRemoteExpense(clientUuid);
+      await deleteRemoteExpense(clientUuid);
     } catch (err) {
       console.error('Failed to delete expense:', err);
     }

@@ -85,18 +85,40 @@ export function broadcastExpenseChange() {
 }
 
 /**
+ * Broadcasts an expense deletion event over Supabase Realtime (< 50ms)
+ * so all other connected phones/laptops immediately remove the record.
+ */
+export function broadcastExpenseDelete(clientUuid: string) {
+  if (typeof window !== 'undefined' && supabase) {
+    try {
+      const channel = supabase.channel('expenses_live');
+      channel.send({
+        type: 'broadcast',
+        event: 'expense_deleted',
+        payload: { clientUuid, timestamp: Date.now() },
+      });
+    } catch (e) {
+      // Non-blocking
+    }
+  }
+}
+
+/**
  * Deletes an expense from the remote server / Supabase
  */
 export async function deleteRemoteExpense(clientUuid: string): Promise<boolean> {
+  // Broadcast deletion immediately to other devices (< 50ms)
+  broadcastExpenseDelete(clientUuid);
+
   if (typeof window === 'undefined' || !navigator.onLine) {
     return false;
   }
   try {
-    await fetch(`/api/sync/expenses?clientUuid=${encodeURIComponent(clientUuid)}`, {
+    const res = await fetch(`/api/sync/expenses?clientUuid=${encodeURIComponent(clientUuid)}`, {
       method: 'DELETE',
     });
     broadcastExpenseChange();
-    return true;
+    return res.ok;
   } catch (err) {
     console.warn('Failed to delete remote expense:', err);
     return false;
@@ -118,9 +140,14 @@ export async function pullRemoteExpenses(): Promise<number> {
 
     const data = await response.json();
     const remoteRecords = data.records || [];
-    if (!Array.isArray(remoteRecords) || remoteRecords.length === 0) return 0;
+    if (!Array.isArray(remoteRecords)) return 0;
 
     let pulledCount = 0;
+    const remoteClientUuids = new Set(
+      remoteRecords.map((r: any) => r.clientUuid || r.client_uuid).filter(Boolean)
+    );
+
+    // 1. Process inserts & updates from remote
     for (const r of remoteRecords) {
       const clientUuid = r.clientUuid || r.client_uuid;
       if (!clientUuid) continue;
@@ -213,6 +240,20 @@ export async function pullRemoteExpenses(): Promise<number> {
           });
           pulledCount++;
         }
+      }
+    }
+
+    // 2. Reconcile Deletions:
+    // Any local expense marked 'synced' that is no longer returned by the cloud
+    // was deleted by another device! Remove it from local IndexedDB.
+    const localSyncedExpenses = await db.expenses
+      .filter((e) => e.syncStatus === 'synced')
+      .toArray();
+
+    for (const localExp of localSyncedExpenses) {
+      if (!remoteClientUuids.has(localExp.clientUuid)) {
+        await db.expenses.delete(localExp.clientUuid);
+        pulledCount++;
       }
     }
 

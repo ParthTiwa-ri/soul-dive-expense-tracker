@@ -226,7 +226,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
 
     try {
       await db.expenses.delete(clientUuid);
-      deleteRemoteExpense(clientUuid);
+      await deleteRemoteExpense(clientUuid);
       setSelectedExpense(null);
     } catch (err) {
       console.error('Failed to delete expense:', err);

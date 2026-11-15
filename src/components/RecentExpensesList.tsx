@@ -78,7 +78,7 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
       // 1. Delete permanently from local Dexie IndexedDB
       await db.expenses.delete(clientUuid);
       // 2. Delete permanently from server / Supabase ledger
-      deleteRemoteExpense(clientUuid);
+      await deleteRemoteExpense(clientUuid);
       setSelectedExpense(null);
       if (onRefresh) onRefresh();
     } catch (err) {

@@ -177,6 +177,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
+      // Instant client-to-client deletion broadcast (< 50ms)
+      channel.on('broadcast', { event: 'expense_deleted' }, async (payload) => {
+        try {
+          const deletedUuid = payload.payload?.clientUuid;
+          if (deletedUuid) {
+            await db.expenses.delete(deletedUuid);
+            await refreshSyncStats();
+          } else {
+            await triggerSync();
+          }
+        } catch (err) {
+          console.warn('Realtime delete event error:', err);
+        }
+      });
+
       // Database WAL changes as secondary backup
       channel.on(
         'postgres_changes',
