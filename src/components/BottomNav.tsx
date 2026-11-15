@@ -5,8 +5,8 @@ import { useApp } from '@/context/AppContext';
 import { PlusCircle, BookOpen, BarChart3, Scale } from 'lucide-react';
 
 interface BottomNavProps {
-  activeTab: 'entry' | 'ledger' | 'dashboard' | 'reconcile';
-  onSelectTab: (tab: 'entry' | 'ledger' | 'dashboard' | 'reconcile') => void;
+  activeTab: 'entry' | 'ledger' | 'dashboard';
+  onSelectTab: (tab: 'entry' | 'ledger' | 'dashboard') => void;
 }
 
 export default function BottomNav({ activeTab, onSelectTab }: BottomNavProps) {
@@ -32,17 +32,11 @@ export default function BottomNav({ activeTab, onSelectTab }: BottomNavProps) {
       labelEn: 'Reports',
       icon: BarChart3,
     },
-    {
-      id: 'reconcile' as const,
-      labelHi: 'रोकड़ / रिकंसाइल',
-      labelEn: 'Reconcile',
-      icon: Scale,
-    },
   ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 safe-bottom shadow-lg">
-      <div className="max-w-md mx-auto grid grid-cols-4 px-2 py-1.5">
+      <div className="max-w-md mx-auto grid grid-cols-3 px-2 py-1.5">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

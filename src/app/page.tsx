@@ -19,7 +19,7 @@ export default function HomePage() {
   const { language, isOnline, syncStats, triggerSync, isSyncing, currentUser } = useApp();
   const isHindi = language === 'hi';
 
-  const [activeTab, setActiveTab] = useState<'entry' | 'ledger' | 'dashboard' | 'reconcile'>('entry');
+  const [activeTab, setActiveTab] = useState<'entry' | 'ledger' | 'dashboard'>('entry');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [manualInitialData, setManualInitialData] = useState<Partial<Expense> | null>(null);
@@ -178,15 +178,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* TAB 4: RECONCILIATION */}
-        {activeTab === 'reconcile' && (
-          <div className="animate-in fade-in duration-200">
-            <h2 className="text-lg font-black text-slate-900 mb-3 px-1">
-              {isHindi ? 'दैनिक नकद मिलान एवं सत्यापन' : 'Daily Reconciliation & Audit'}
-            </h2>
-            <ReconciliationView expenses={expenses} />
-          </div>
-        )}
+
       </main>
 
       {/* Floating Action Voice Modal */}
