@@ -241,7 +241,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       );
 
-      channel.subscribe();
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          // Instantly sync any missed transactions upon socket connection or reconnection
+          triggerSync();
+        }
+      });
 
       return () => {
         supabase?.removeChannel(channel);

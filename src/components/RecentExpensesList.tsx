@@ -6,7 +6,7 @@ import { Expense } from '@/types';
 import { formatINR, formatDateIST } from '@/lib/constants';
 import { db } from '@/lib/db';
 import { CheckCircle2, Clock, AlertTriangle, Receipt, ChevronRight, X, Image as ImageIcon, Camera, Trash2, Check, Edit3, Lock } from 'lucide-react';
-import { compressImage, deleteRemoteExpense } from '@/lib/syncEngine';
+import { compressImage, deleteRemoteExpense, broadcastExpenseChange } from '@/lib/syncEngine';
 import EditExpenseModal from '@/components/EditExpenseModal';
 
 interface RecentExpensesListProps {
@@ -15,7 +15,7 @@ interface RecentExpensesListProps {
 }
 
 export default function RecentExpensesList({ expenses, onRefresh }: RecentExpensesListProps) {
-  const { language, currentUser } = useApp();
+  const { language, currentUser, triggerSync } = useApp();
   const isHindi = language === 'hi';
   const isOwner = currentUser.role === 'owner' || currentUser.role === 'super_admin';
   const isSuperAdmin = currentUser.role === 'super_admin';
@@ -39,6 +39,11 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
         receiptBlob: blob,
         syncStatus: selectedExpense.syncStatus === 'synced' ? 'pending' : selectedExpense.syncStatus,
       });
+
+      broadcastExpenseChange();
+      if (typeof window !== 'undefined' && navigator.onLine) {
+        triggerSync();
+      }
 
       setSelectedExpense((prev) =>
         prev

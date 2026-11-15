@@ -277,16 +277,23 @@ export async function pullRemoteExpenses(): Promise<number> {
     }
 
     // 2. Reconcile Deletions:
-    // Any local expense marked 'synced' that is no longer returned by the cloud
-    // was deleted by another device! Remove it from local IndexedDB.
-    const localSyncedExpenses = await db.expenses
-      .filter((e) => e.syncStatus === 'synced')
-      .toArray();
+    // Only reconcile deletions if response is explicitly confirmed from Supabase
+    // to prevent accidental local data loss during serverless cold starts or offline memory fallbacks.
+    if (data.source === 'supabase') {
+      const localSyncedExpenses = await db.expenses
+        .filter((e) => e.syncStatus === 'synced')
+        .toArray();
 
-    for (const localExp of localSyncedExpenses) {
-      if (!remoteClientUuids.has(localExp.clientUuid)) {
-        await db.expenses.delete(localExp.clientUuid);
-        pulledCount++;
+      // Guard against glitch wipes: only reconcile if remote has records OR local was already empty
+      const shouldReconcile = remoteRecords.length > 0 || localSyncedExpenses.length === 0;
+
+      if (shouldReconcile) {
+        for (const localExp of localSyncedExpenses) {
+          if (!remoteClientUuids.has(localExp.clientUuid)) {
+            await db.expenses.delete(localExp.clientUuid);
+            pulledCount++;
+          }
+        }
       }
     }
 
@@ -413,7 +420,16 @@ export async function applyRemoteRealtimeEvent(
 ): Promise<void> {
   if (!row) return;
   const clientUuid = row.client_uuid || row.clientUuid;
-  if (!clientUuid) return;
+  
+  if (!clientUuid) {
+    if (row.id && (eventType === 'DELETE' || row.status === 'voided')) {
+      const match = await db.expenses.where('id').equals(row.id).first();
+      if (match) {
+        await db.expenses.delete(match.clientUuid);
+      }
+    }
+    return;
+  }
 
   if (eventType === 'DELETE' || row.status === 'voided') {
     await db.expenses.delete(clientUuid);
@@ -421,6 +437,9 @@ export async function applyRemoteRealtimeEvent(
   }
 
   const existing = await db.expenses.get(clientUuid);
+  const defaultCat = DEFAULT_CATEGORIES.find(c => c.id === (row.category_id || row.categoryId));
+  const categoryNameHi = row.category_name_hi || row.categoryNameHi || defaultCat?.nameHi || 'अन्य निर्माण खर्च';
+  const categoryNameEn = row.category_name || row.categoryName || defaultCat?.nameEn || 'Other Construction Expenses';
 
   if (!existing) {
     const newExpense: Expense = {
@@ -429,11 +448,11 @@ export async function applyRemoteRealtimeEvent(
       amountPaise: Number(row.amount_paise || row.amountPaise),
       currency: row.currency || 'INR',
       description: row.description || '',
-      categoryId: row.category_id || row.categoryId || 'cat-other-construction',
-      categoryName: row.category_name || row.categoryName,
-      categoryNameHi: row.category_name_hi || row.categoryNameHi,
+      categoryId: row.category_id || row.categoryId || defaultCat?.id || 'cat-other-construction',
+      categoryName: categoryNameEn,
+      categoryNameHi: categoryNameHi,
       vendorId: row.vendor_id || row.vendorId,
-      vendorName: row.vendor_name || row.vendorName,
+      vendorName: row.vendor_name !== undefined ? row.vendor_name : row.vendorName,
       phaseId: row.phase_id || row.phaseId || 'phase-construction',
       phaseName: row.phase_name || row.phaseName,
       paymentMethod: row.payment_method || row.paymentMethod || 'cash',
@@ -464,15 +483,17 @@ export async function applyRemoteRealtimeEvent(
         amountPaise: Number(row.amount_paise || row.amountPaise) || existing.amountPaise,
         description: row.description || existing.description,
         categoryId: row.category_id || row.categoryId || existing.categoryId,
-        categoryName: row.category_name || row.categoryName || existing.categoryName,
-        categoryNameHi: row.category_name_hi || row.categoryNameHi || existing.categoryNameHi,
+        categoryName: categoryNameEn,
+        categoryNameHi: categoryNameHi,
         vendorId: row.vendor_id || row.vendorId || existing.vendorId,
-        vendorName: row.vendor_name || row.vendorName || existing.vendorName,
+        vendorName: (row.vendor_name !== undefined ? row.vendor_name : row.vendorName) ?? existing.vendorName,
         phaseId: row.phase_id || row.phaseId || existing.phaseId,
         phaseName: row.phase_name || row.phaseName || existing.phaseName,
         paymentMethod: row.payment_method || row.paymentMethod || existing.paymentMethod,
         paymentDate: row.payment_date || row.paymentDate || existing.paymentDate,
         paymentTime: row.payment_time || row.paymentTime || existing.paymentTime,
+        paidByUserId: row.paid_by_user_id || row.paidByUserId || existing.paidByUserId,
+        paidByName: row.paid_by_name || row.paidByName || existing.paidByName,
         notes: row.notes !== undefined ? row.notes : existing.notes,
         status: row.status || existing.status,
         verificationStatus: row.verification_status || row.verificationStatus || existing.verificationStatus,

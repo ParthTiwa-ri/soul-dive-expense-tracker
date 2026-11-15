@@ -8,14 +8,14 @@ import { db } from '@/lib/db';
 import { ShieldCheck, CheckCircle2, Clock, Receipt, Image as ImageIcon, Check, Edit3, Lock, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import EditExpenseModal from '@/components/EditExpenseModal';
-import { deleteRemoteExpense } from '@/lib/syncEngine';
+import { deleteRemoteExpense, broadcastExpenseChange } from '@/lib/syncEngine';
 
 interface ApprovalViewProps {
   expenses: Expense[];
 }
 
 export default function ApprovalView({ expenses }: ApprovalViewProps) {
-  const { language, currentUser } = useApp();
+  const { language, currentUser, triggerSync } = useApp();
   const isHindi = language === 'hi';
   const isSuperAdmin = currentUser.role === 'super_admin';
 
@@ -47,6 +47,12 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
         verifiedAt: new Date().toISOString(),
         syncStatus: 'pending', // Re-sync the verification status to central server
       });
+
+      // Immediately broadcast and sync approval across devices
+      broadcastExpenseChange();
+      if (typeof window !== 'undefined' && navigator.onLine) {
+        triggerSync();
+      }
 
       // Micro celebration feedback
       try {

@@ -5,7 +5,7 @@ import { useApp } from '@/context/AppContext';
 import { Expense, PaymentMethod, Category, ProjectPhase } from '@/types';
 import { db } from '@/lib/db';
 import { PAYMENT_METHODS, DEFAULT_CATEGORIES, DEFAULT_PHASES } from '@/lib/constants';
-import { compressImage } from '@/lib/syncEngine';
+import { compressImage, broadcastExpenseChange } from '@/lib/syncEngine';
 import {
   X,
   Check,
@@ -32,7 +32,7 @@ export default function EditExpenseModal({
   expense,
   onSaved,
 }: EditExpenseModalProps) {
-  const { currentUser, language } = useApp();
+  const { currentUser, language, triggerSync } = useApp();
   const isHindi = language === 'hi';
   const isOwner = currentUser.role === 'owner' || currentUser.role === 'super_admin';
   const isSuperAdmin = currentUser.role === 'super_admin';
@@ -168,6 +168,12 @@ export default function EditExpenseModal({
       }
 
       await db.expenses.update(expense.clientUuid, updates);
+
+      // Immediately broadcast and sync to cloud without delay
+      broadcastExpenseChange();
+      if (typeof window !== 'undefined' && navigator.onLine) {
+        triggerSync();
+      }
 
       const updatedExpense: Expense = {
         ...expense,

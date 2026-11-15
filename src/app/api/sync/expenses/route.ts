@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
           .maybeSingle();
 
         if (existing) {
-          // Check if literally anything changed (amount, description, category, payment method, date, vendor, notes, receipt, verification)
+          // Check if literally anything changed (amount, description, category, payment method, date, vendor, notes, receipt, verification, payer)
           const isIdentical =
             Number(existing.amount_paise) === Number(body.amountPaise) &&
             (existing.description || '') === (body.description || '') &&
@@ -116,8 +116,10 @@ export async function POST(req: NextRequest) {
             (existing.status || 'active') === (body.status || 'active') &&
             (existing.payment_method || 'cash') === (body.paymentMethod || 'cash') &&
             (existing.payment_date || '') === (body.paymentDate || '') &&
+            (existing.payment_time || '') === (body.paymentTime || '') &&
             (existing.category_id || '') === (body.categoryId || '') &&
             (existing.vendor_name || '') === (body.vendorName || '') &&
+            (existing.paid_by_user_id || '') === (body.paidByUserId || '') &&
             (existing.notes || '') === (body.notes || '') &&
             Boolean(existing.has_receipt) === Boolean(body.hasReceipt) &&
             (existing.receipt_data_url || '') === (body.receiptDataUrl || '');
@@ -139,7 +141,15 @@ export async function POST(req: NextRequest) {
             .select('id, client_uuid, created_at, updated_at')
             .single();
 
-          if (!updateError && updated) {
+          if (updateError) {
+            console.error('Supabase update error:', updateError);
+            return NextResponse.json(
+              { error: updateError.message, details: updateError },
+              { status: 500 }
+            );
+          }
+
+          if (updated) {
             return NextResponse.json({
               id: updated.id,
               clientUuid: updated.client_uuid,
@@ -148,9 +158,6 @@ export async function POST(req: NextRequest) {
               status: 'synced',
               message: 'Record updated successfully in Supabase',
             });
-          }
-          if (updateError) {
-            console.error('Supabase update error, falling back to local memory:', updateError);
           }
         } else {
           // Insert new record into Supabase
@@ -161,8 +168,14 @@ export async function POST(req: NextRequest) {
             .single();
 
           if (insertError) {
-            console.error('Supabase insert error, falling back to local memory:', insertError);
-          } else if (inserted) {
+            console.error('Supabase insert error:', insertError);
+            return NextResponse.json(
+              { error: insertError.message, details: insertError },
+              { status: 500 }
+            );
+          }
+
+          if (inserted) {
             return NextResponse.json({
               id: inserted.id,
               clientUuid: inserted.client_uuid,
@@ -171,8 +184,12 @@ export async function POST(req: NextRequest) {
             });
           }
         }
-      } catch (dbErr) {
-        console.warn('Supabase request failed, using local ledger fallback:', dbErr);
+      } catch (dbErr: any) {
+        console.error('Supabase request failed:', dbErr);
+        return NextResponse.json(
+          { error: dbErr?.message || 'Database error' },
+          { status: 500 }
+        );
       }
     }
 
@@ -294,17 +311,28 @@ export async function GET() {
         .from('expenses')
         .select('*')
         .neq('status', 'voided')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5000);
 
-      if (!error && records) {
-        return NextResponse.json({
-          totalCount: records.length,
-          records,
-          source: 'supabase',
-        });
+      if (error) {
+        console.error('Supabase fetch error in GET /api/sync/expenses:', error);
+        return NextResponse.json(
+          { error: error.message, totalCount: 0, records: [] },
+          { status: 500 }
+        );
       }
-    } catch (err) {
-      console.warn('Failed to fetch from Supabase:', err);
+
+      return NextResponse.json({
+        totalCount: records?.length || 0,
+        records: records || [],
+        source: 'supabase',
+      });
+    } catch (err: any) {
+      console.error('Failed to fetch from Supabase:', err);
+      return NextResponse.json(
+        { error: err?.message || 'Database fetch error', totalCount: 0, records: [] },
+        { status: 500 }
+      );
     }
   }
 
@@ -339,9 +367,13 @@ export async function DELETE(req: NextRequest) {
     if (supabase) {
       try {
         const { error: delError } = await supabase.from('expenses').delete().eq('client_uuid', clientUuid);
-        if (delError) console.warn('Supabase delete error:', delError);
-      } catch (err) {
-        console.warn('Supabase delete failed:', err);
+        if (delError) {
+          console.error('Supabase delete error:', delError);
+          return NextResponse.json({ error: delError.message }, { status: 500 });
+        }
+      } catch (err: any) {
+        console.error('Supabase delete failed:', err);
+        return NextResponse.json({ error: err.message }, { status: 500 });
       }
     }
 
