@@ -15,9 +15,9 @@ describe('Server Idempotent Sync API (/api/sync/expenses)', () => {
         paymentMethod: 'upi',
         paymentDate: '2026-11-15',
         paidByUserId: '11111111-1111-1111-1111-111111111111',
-        paidByName: 'पिताजी',
+        paidByName: 'कृष्ण मुरारी तिवारी',
         submittedByUserId: '11111111-1111-1111-1111-111111111111',
-        submittedByName: 'पिताजी',
+        submittedByName: 'कृष्ण मुरारी तिवारी',
         deviceCreatedAt: new Date().toISOString(),
       }),
     } as any;
@@ -43,9 +43,9 @@ describe('Server Idempotent Sync API (/api/sync/expenses)', () => {
       paymentMethod: 'cash',
       paymentDate: '2026-11-15',
       paidByUserId: '11111111-1111-1111-1111-111111111111',
-      paidByName: 'पिताजी',
+      paidByName: 'कृष्ण मुरारी तिवारी',
       submittedByUserId: '11111111-1111-1111-1111-111111111111',
-      submittedByName: 'पिताजी',
+      submittedByName: 'कृष्ण मुरारी तिवारी',
       deviceCreatedAt: new Date().toISOString(),
     };
 

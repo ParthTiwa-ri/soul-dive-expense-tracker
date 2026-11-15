@@ -42,6 +42,20 @@ export async function initializeLocalDatabase(): Promise<void> {
     // Keep profiles up-to-date with current defaults
     await db.profiles.bulkPut(DEFAULT_PROFILES);
 
+    // Sanitize any previously saved names in existing expenses (strip "(पिताजी)", "(Father)", "(मालिक / Admin)", etc.)
+    await db.expenses.toCollection().modify((expense) => {
+      let changed = false;
+      if (expense.submittedByName && /\((पिताजी|Father|admin|owner|मालिक \/ Admin)\)/i.test(expense.submittedByName)) {
+        expense.submittedByName = expense.submittedByName.replace(/\s*\((पिताजी|Father|admin|owner|मालिक \/ Admin)\)/gi, '').trim();
+        changed = true;
+      }
+      if (expense.paidByName && /\((पिताजी|Father|admin|owner|मालिक \/ Admin)\)/i.test(expense.paidByName)) {
+        expense.paidByName = expense.paidByName.replace(/\s*\((पिताजी|Father|admin|owner|मालिक \/ Admin)\)/gi, '').trim();
+        changed = true;
+      }
+      return changed;
+    });
+
     const vendorsCount = await db.vendors.count();
     if (vendorsCount === 0) {
       await db.vendors.bulkAdd([

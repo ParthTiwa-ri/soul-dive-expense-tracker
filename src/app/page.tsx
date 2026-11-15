@@ -107,7 +107,7 @@ export default function HomePage() {
             <div className="bg-gradient-to-b from-white to-cyan-50/50 rounded-3xl p-6 border border-cyan-100 shadow-md text-center flex flex-col items-center">
               <span className="text-xs font-bold uppercase tracking-wider text-cyan-800 mb-1 flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
-                {isHindi ? 'सबसे आसान तरीका (Father-First)' : 'Easiest Method'}
+                {isHindi ? 'सबसे आसान तरीका' : 'Easiest Method'}
               </span>
 
               <h2 className="text-xl font-black text-slate-900 tracking-tight mb-2">

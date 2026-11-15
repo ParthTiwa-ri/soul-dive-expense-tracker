@@ -67,8 +67,8 @@ ON CONFLICT DO NOTHING;
 
 -- 5. Seed Initial Profiles for Development / Testing
 INSERT INTO profiles (id, full_name, phone, role, preferred_language) VALUES
-('11111111-1111-1111-1111-111111111111', 'Krishna Murari Tiwari (कृष्ण मुरारी तिवारी)', '+91 98765 43210', 'contributor', 'hi'),
-('22222222-2222-2222-2222-222222222222', 'Parth Tiwari (मालिक / Admin)', '+91 98765 12345', 'owner', 'en')
+('11111111-1111-1111-1111-111111111111', 'कृष्ण मुरारी तिवारी', '+91 98765 43210', 'contributor', 'hi'),
+('22222222-2222-2222-2222-222222222222', 'Parth Tiwari', '+91 98765 12345', 'owner', 'en')
 ON CONFLICT (id) DO UPDATE SET
   full_name = EXCLUDED.full_name,
   role = EXCLUDED.role,
