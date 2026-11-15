@@ -17,8 +17,10 @@ import {
   Check,
   Calendar,
   ChevronDown,
+  Edit3,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import EditExpenseModal from '@/components/EditExpenseModal';
 
 interface LedgerViewProps {
   expenses: Expense[];
@@ -54,6 +56,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
 
   // Selected expense for detail popup
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // Categories list
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
@@ -759,18 +762,35 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
               )}
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
-              {selectedExpense.verificationStatus === 'pending' && selectedExpense.status !== 'voided' && (
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleApprove(selectedExpense.clientUuid)}
-                  className="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                  type="button"
+                  onClick={() => {
+                    const toEdit = selectedExpense;
+                    setSelectedExpense(null);
+                    setEditingExpense(toEdit);
+                  }}
+                  className="py-2.5 px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
                 >
-                  <Check className="w-4 h-4 stroke-[3px]" />
-                  <span>{isHindi ? 'मंजूर करें (Approve)' : 'Approve'}</span>
+                  <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>{isHindi ? 'सुधारें' : 'Edit'}</span>
                 </button>
-              )}
+
+                {selectedExpense.verificationStatus === 'pending' && selectedExpense.status !== 'voided' && (
+                  <button
+                    type="button"
+                    onClick={() => handleApprove(selectedExpense.clientUuid)}
+                    className="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                  >
+                    <Check className="w-4 h-4 stroke-[3px]" />
+                    <span>{isHindi ? 'मंजूर करें' : 'Approve'}</span>
+                  </button>
+                )}
+              </div>
 
               <button
+                type="button"
                 onClick={() => setSelectedExpense(null)}
                 className="py-2.5 px-4 ml-auto rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors"
               >
@@ -780,6 +800,13 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
           </div>
         </div>
       )}
+
+      {/* Edit / Correction Modal */}
+      <EditExpenseModal
+        isOpen={Boolean(editingExpense)}
+        expense={editingExpense}
+        onClose={() => setEditingExpense(null)}
+      />
     </div>
   );
 }

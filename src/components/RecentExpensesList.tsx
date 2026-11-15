@@ -5,8 +5,9 @@ import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
 import { formatINR, formatDateIST } from '@/lib/constants';
 import { db } from '@/lib/db';
-import { CheckCircle2, Clock, AlertTriangle, Receipt, ChevronRight, X, Image as ImageIcon, Camera, Trash2, Check } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, Receipt, ChevronRight, X, Image as ImageIcon, Camera, Trash2, Check, Edit3 } from 'lucide-react';
 import { compressImage } from '@/lib/syncEngine';
+import EditExpenseModal from '@/components/EditExpenseModal';
 
 interface RecentExpensesListProps {
   expenses: Expense[];
@@ -18,6 +19,7 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
   const isHindi = language === 'hi';
 
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isAttachingReceipt, setIsAttachingReceipt] = useState(false);
 
   // Handle receipt attachment to an existing expense
@@ -291,25 +293,41 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
 
             {/* Actions */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-              {selectedExpense.verificationStatus === 'pending' && selectedExpense.status !== 'voided' && (
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={async () => {
-                    await db.expenses.update(selectedExpense.clientUuid, {
-                      verificationStatus: 'verified',
-                      verifiedByUserId: currentUser.id,
-                      verifiedAt: new Date().toISOString(),
-                      syncStatus: 'pending',
-                    });
-                    setSelectedExpense((prev) =>
-                      prev ? { ...prev, verificationStatus: 'verified' } : null
-                    );
+                  type="button"
+                  onClick={() => {
+                    const toEdit = selectedExpense;
+                    setSelectedExpense(null);
+                    setEditingExpense(toEdit);
                   }}
-                  className="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                  className="py-2.5 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
                 >
-                  <Check className="w-4 h-4 stroke-[3px]" />
-                  <span>{isHindi ? 'मंजूर करें (Approve)' : 'Approve'}</span>
+                  <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>{isHindi ? 'सुधारें' : 'Edit'}</span>
                 </button>
-              )}
+
+                {selectedExpense.verificationStatus === 'pending' && selectedExpense.status !== 'voided' && (
+                  <button
+                    onClick={async () => {
+                      await db.expenses.update(selectedExpense.clientUuid, {
+                        verificationStatus: 'verified',
+                        verifiedByUserId: currentUser.id,
+                        verifiedAt: new Date().toISOString(),
+                        syncStatus: 'pending',
+                      });
+                      setSelectedExpense((prev) =>
+                        prev ? { ...prev, verificationStatus: 'verified' } : null
+                      );
+                      if (onRefresh) onRefresh();
+                    }}
+                    className="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                  >
+                    <Check className="w-4 h-4 stroke-[3px]" />
+                    <span>{isHindi ? 'मंजूर करें (Approve)' : 'Approve'}</span>
+                  </button>
+                )}
+              </div>
 
               {selectedExpense.status !== 'voided' && (
                 <button
@@ -331,6 +349,16 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
           </div>
         </div>
       )}
+
+      {/* Edit / Correction Modal */}
+      <EditExpenseModal
+        isOpen={Boolean(editingExpense)}
+        expense={editingExpense}
+        onClose={() => setEditingExpense(null)}
+        onSaved={() => {
+          if (onRefresh) onRefresh();
+        }}
+      />
     </div>
   );
 }

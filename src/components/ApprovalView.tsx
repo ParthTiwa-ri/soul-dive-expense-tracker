@@ -5,8 +5,9 @@ import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
 import { formatINR, formatDateIST } from '@/lib/constants';
 import { db } from '@/lib/db';
-import { ShieldCheck, CheckCircle2, Clock, Receipt, Image as ImageIcon, Check } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Clock, Receipt, Image as ImageIcon, Check, Edit3 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import EditExpenseModal from '@/components/EditExpenseModal';
 
 interface ApprovalViewProps {
   expenses: Expense[];
@@ -18,6 +19,7 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
 
   const [filterMode, setFilterMode] = useState<'pending' | 'verified'>('pending');
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // Filter unverified and verified active expenses
   const unverifiedExpenses = useMemo(() => {
@@ -180,8 +182,8 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
                   </div>
                 )}
 
-                {/* Bottom Row: Verification Action or Status */}
-                <div className="pt-1 flex items-center justify-between border-t border-slate-100">
+                {/* Bottom Row: Verification & Correction Actions */}
+                <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100">
                   <div className="flex items-center gap-1">
                     {isVerified ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
@@ -191,26 +193,46 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
                         <Clock className="w-3.5 h-3.5 text-amber-600" />
-                        {isHindi ? 'मंजूरी बाकी (Pending Approval)' : 'Pending Approval'}
+                        {isHindi ? 'मंजूरी बाकी' : 'Pending Approval'}
                       </span>
                     )}
                   </div>
 
-                  {!isVerified && (
+                  <div className="flex items-center gap-2">
+                    {/* Correct / Edit Option */}
                     <button
-                      onClick={() => handleApprove(expense.clientUuid)}
-                      className="py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                      type="button"
+                      onClick={() => setEditingExpense(expense)}
+                      className="py-1.5 px-3 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all"
                     >
-                      <Check className="w-4 h-4 stroke-[3px]" />
-                      <span>{isHindi ? 'मंजूर करें (Approve)' : 'Approve'}</span>
+                      <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{isHindi ? 'सुधारें' : 'Correct'}</span>
                     </button>
-                  )}
+
+                    {!isVerified && (
+                      <button
+                        type="button"
+                        onClick={() => handleApprove(expense.clientUuid)}
+                        className="py-1.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                      >
+                        <Check className="w-4 h-4 stroke-[3px]" />
+                        <span>{isHindi ? 'मंजूर करें' : 'Approve'}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
           })
         )}
       </div>
+
+      {/* Edit / Correction Modal */}
+      <EditExpenseModal
+        isOpen={Boolean(editingExpense)}
+        expense={editingExpense}
+        onClose={() => setEditingExpense(null)}
+      />
 
       {/* Receipt Photo Modal */}
       {selectedReceiptUrl && (
