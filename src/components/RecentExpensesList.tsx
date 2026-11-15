@@ -210,32 +210,40 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
               )}
             </div>
 
-            {/* Right: Amount & Arrow */}
-            <div className="flex items-center gap-2 text-right">
-              <div>
-                <div className="flex items-center justify-end gap-1.5">
-                  <span
-                    className={`text-base font-extrabold tracking-tight ${
-                      isVoided ? 'line-through text-slate-400' : 'text-slate-900'
-                    }`}
-                  >
-                    {formatINR(expense.amountPaise)}
-                  </span>
-                  {/* Tiny colored icon: only for pending approval, nothing for approved */}
-                  {expense.verificationStatus === 'pending' && !isVoided && (
+            {/* Right: Symmetrical Amount & Status Icon End-Cap */}
+            <div className="text-right flex-shrink-0">
+              <div className="flex items-center justify-end gap-1.5">
+                <span
+                  className={`text-base font-extrabold tracking-tight ${
+                    isVoided ? 'line-through text-slate-400' : 'text-slate-900'
+                  }`}
+                >
+                  {formatINR(expense.amountPaise)}
+                </span>
+
+                {/* Symmetrical Fixed-Width Status Icon End-Cap */}
+                <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                  {expense.verificationStatus === 'verified' ? (
+                    <span
+                      title={isHindi ? 'मंजूर (Approved ✓)' : 'Approved'}
+                      className="w-4 h-4 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shadow-xs"
+                    >
+                      <Check className="w-2.5 h-2.5 text-emerald-600 stroke-[3]" />
+                    </span>
+                  ) : (
                     <span
                       title={isHindi ? 'मंजूरी बाकी (Pending Approval)' : 'Pending Approval'}
-                      className="p-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 inline-flex items-center justify-center flex-shrink-0"
+                      className="w-4 h-4 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shadow-xs"
                     >
-                      <Clock className="w-3 h-3 text-amber-600 stroke-[2.5]" />
+                      <Clock className="w-2.5 h-2.5 text-amber-600 stroke-[2.5]" />
                     </span>
                   )}
                 </div>
-                <span className="block text-[10px] font-medium text-slate-400 truncate max-w-[90px]">
-                  {expense.paidByName || 'Self'}
-                </span>
               </div>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
+
+              <span className="block text-[10px] font-medium text-slate-400 truncate max-w-[100px] mt-0.5">
+                {expense.paidByName || 'Self'}
+              </span>
             </div>
           </div>
         );
