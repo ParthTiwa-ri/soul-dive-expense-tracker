@@ -178,60 +178,59 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                 <span>• {expense.paymentMethod.toUpperCase()}</span>
               </div>
 
-              {/* Status Badges: Approval Status & Cloud Sync */}
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {/* Approval Status Badge */}
-                {expense.verificationStatus === 'verified' ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
-                    {isHindi ? 'मंजूर' : 'Approved'}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                    <Clock className="w-2.5 h-2.5 text-amber-600" />
-                    {isHindi ? 'बाकी' : 'Pending'}
-                  </span>
-                )}
+              {/* System status: only shown when offline, failed, or voided */}
+              {(!isSynced || isFailed || isVoided) && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {!isSynced && !isFailed && !isVoided && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-in fade-in"
+                      title={isHindi ? 'फोन में सेव (इंटरनेट मिलने पर सिंक होगा)' : 'Local Only (Pending Sync)'}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      <span>{isHindi ? 'फोन में सेव' : 'Local'}</span>
+                    </span>
+                  )}
 
-                {/* Cloud Sync Status: Silent when synced, amber dot when offline, red alert when failed */}
-                {!isSynced && !isFailed && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-in fade-in"
-                    title={isHindi ? 'फोन में सेव (इंटरनेट मिलने पर सिंक होगा)' : 'Local Only (Pending Sync)'}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    <span>{isHindi ? 'फोन में सेव' : 'Local'}</span>
-                  </span>
-                )}
+                  {isFailed && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
+                      title={isHindi ? 'सिंक विफल (दोबारा प्रयास होगा)' : 'Sync Failed'}
+                    >
+                      <AlertTriangle className="w-2.5 h-2.5 text-rose-500" />
+                      <span>{isHindi ? 'सिंक विफल' : 'Failed'}</span>
+                    </span>
+                  )}
 
-                {isFailed && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
-                    title={isHindi ? 'सिंक विफल (दोबारा प्रयास होगा)' : 'Sync Failed'}
-                  >
-                    <AlertTriangle className="w-2.5 h-2.5 text-rose-500" />
-                    <span>{isHindi ? 'सिंक विफल' : 'Failed'}</span>
-                  </span>
-                )}
-
-                {isVoided && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
-                    {isHindi ? 'रद्द' : 'Voided'}
-                  </span>
-                )}
-              </div>
+                  {isVoided && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
+                      {isHindi ? 'रद्द' : 'Voided'}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Right: Amount & Arrow */}
             <div className="flex items-center gap-2 text-right">
               <div>
-                <span
-                  className={`text-base font-extrabold tracking-tight ${
-                    isVoided ? 'line-through text-slate-400' : 'text-slate-900'
-                  }`}
-                >
-                  {formatINR(expense.amountPaise)}
-                </span>
+                <div className="flex items-center justify-end gap-1.5">
+                  <span
+                    className={`text-base font-extrabold tracking-tight ${
+                      isVoided ? 'line-through text-slate-400' : 'text-slate-900'
+                    }`}
+                  >
+                    {formatINR(expense.amountPaise)}
+                  </span>
+                  {/* Tiny colored icon: only for pending approval, nothing for approved */}
+                  {expense.verificationStatus === 'pending' && !isVoided && (
+                    <span
+                      title={isHindi ? 'मंजूरी बाकी (Pending Approval)' : 'Pending Approval'}
+                      className="p-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 inline-flex items-center justify-center flex-shrink-0"
+                    >
+                      <Clock className="w-3 h-3 text-amber-600 stroke-[2.5]" />
+                    </span>
+                  )}
+                </div>
                 <span className="block text-[10px] font-medium text-slate-400 truncate max-w-[90px]">
                   {expense.paidByName || 'Self'}
                 </span>

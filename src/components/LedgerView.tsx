@@ -557,47 +557,47 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                           </div>
                         </div>
 
-                        {/* Right: Amount, Approval Badge, Sync Status */}
+                        {/* Right: Amount & Status */}
                         <div className="text-right flex flex-col items-end flex-shrink-0">
-                          <span className="text-base font-black text-slate-900 tracking-tight">
-                            {formatINR(item.amountPaise)}
-                          </span>
-
-                          {/* Prominent Approval Status Badge */}
-                          <div className="mt-1 flex flex-col items-end gap-1">
-                            {isApproved ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
-                                <CheckCircle className="w-2.5 h-2.5 text-emerald-600" />
-                                {isHindi ? 'मंजूर' : 'Approved'}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300">
-                                <Clock className="w-2.5 h-2.5 text-amber-600" />
-                                {isHindi ? 'बाकी' : 'Pending'}
-                              </span>
-                            )}
-
-                            {/* Cloud Sync Status: Silent when synced, amber dot when offline, red alert when failed */}
-                            {!isSynced && !isFailed && (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="text-base font-black text-slate-900 tracking-tight">
+                              {formatINR(item.amountPaise)}
+                            </span>
+                            {/* Tiny colored icon: only for pending approval, nothing for approved */}
+                            {!isApproved && (
                               <span
-                                className="inline-flex items-center gap-1 text-[9px] text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 animate-in fade-in"
-                                title={isHindi ? 'फोन में सेव (सिंक बाकी)' : 'Local Only (Pending Sync)'}
+                                title={isHindi ? 'मंजूरी बाकी (Pending Approval)' : 'Pending Approval'}
+                                className="p-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 inline-flex items-center justify-center flex-shrink-0"
                               >
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                <span>{isHindi ? 'फोन में सेव' : 'Local'}</span>
-                              </span>
-                            )}
-
-                            {isFailed && (
-                              <span
-                                className="inline-flex items-center gap-1 text-[9px] text-rose-700 font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200"
-                                title={isHindi ? 'सिंक विफल' : 'Sync Failed'}
-                              >
-                                <AlertTriangle className="w-2.5 h-2.5 text-rose-500" />
-                                <span>{isHindi ? 'विफल' : 'Failed'}</span>
+                                <Clock className="w-3 h-3 text-amber-600 stroke-[2.5]" />
                               </span>
                             )}
                           </div>
+
+                          {/* Cloud Sync Status: Only when offline or failed */}
+                          {(!isSynced || isFailed) && (
+                            <div className="mt-1 flex flex-col items-end gap-1">
+                              {!isSynced && !isFailed && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[9px] text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 animate-in fade-in"
+                                  title={isHindi ? 'फोन में सेव (सिंक बाकी)' : 'Local Only (Pending Sync)'}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                  <span>{isHindi ? 'फोन में सेव' : 'Local'}</span>
+                                </span>
+                              )}
+
+                              {isFailed && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[9px] text-rose-700 font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200"
+                                  title={isHindi ? 'सिंक विफल' : 'Sync Failed'}
+                                >
+                                  <AlertTriangle className="w-2.5 h-2.5 text-rose-500" />
+                                  <span>{isHindi ? 'विफल' : 'Failed'}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
