@@ -40,6 +40,7 @@ function getDateStringIST(offsetDays = 0): string {
 export default function LedgerView({ expenses }: LedgerViewProps) {
   const { language, currentUser } = useApp();
   const isHindi = language === 'hi';
+  const isOwner = currentUser.role === 'owner';
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -777,7 +778,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                   <span>{isHindi ? 'सुधारें' : 'Edit'}</span>
                 </button>
 
-                {selectedExpense.verificationStatus === 'pending' && selectedExpense.status !== 'voided' && (
+                {isOwner && selectedExpense.verificationStatus === 'pending' && selectedExpense.status !== 'voided' && (
                   <button
                     type="button"
                     onClick={() => handleApprove(selectedExpense.clientUuid)}

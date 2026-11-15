@@ -33,6 +33,7 @@ export default function EditExpenseModal({
 }: EditExpenseModalProps) {
   const { currentUser, language } = useApp();
   const isHindi = language === 'hi';
+  const isOwner = currentUser.role === 'owner';
 
   // Form states
   const [amountRupees, setAmountRupees] = useState<string>('');
@@ -459,12 +460,16 @@ export default function EditExpenseModal({
                 ? 'सेव हो रहा है...'
                 : 'Saving...'
               : isHindi
-              ? 'सिर्फ सुधार सेव करें'
-              : 'Save Changes Only'}
+              ? isOwner
+                ? 'सिर्फ सुधार सेव करें'
+                : 'सुधार सेव करें'
+              : isOwner
+              ? 'Save Changes Only'
+              : 'Save Changes'}
           </button>
 
-          {/* Option B: Save and Approve immediately (for pending records) */}
-          {!isVerified && (
+          {/* Option B: Save and Approve immediately (for Owner / Admin only) */}
+          {isOwner && !isVerified && (
             <button
               type="button"
               onClick={() => handlePerformSave(true)}

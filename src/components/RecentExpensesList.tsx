@@ -17,6 +17,7 @@ interface RecentExpensesListProps {
 export default function RecentExpensesList({ expenses, onRefresh }: RecentExpensesListProps) {
   const { language, currentUser } = useApp();
   const isHindi = language === 'hi';
+  const isOwner = currentUser.role === 'owner';
 
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -307,7 +308,7 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                   <span>{isHindi ? 'सुधारें' : 'Edit'}</span>
                 </button>
 
-                {selectedExpense.verificationStatus === 'pending' && selectedExpense.status !== 'voided' && (
+                {isOwner && selectedExpense.verificationStatus === 'pending' && selectedExpense.status !== 'voided' && (
                   <button
                     onClick={async () => {
                       await db.expenses.update(selectedExpense.clientUuid, {
@@ -329,7 +330,7 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                 )}
               </div>
 
-              {selectedExpense.status !== 'voided' && (
+              {isOwner && selectedExpense.status !== 'voided' && (
                 <button
                   onClick={() => handleVoidExpense(selectedExpense.clientUuid)}
                   className="py-2.5 px-3 rounded-xl border border-rose-300 bg-white hover:bg-rose-50 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
