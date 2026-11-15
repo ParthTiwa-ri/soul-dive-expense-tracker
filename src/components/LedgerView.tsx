@@ -7,16 +7,15 @@ import { formatINR, formatDateIST, DEFAULT_CATEGORIES } from '@/lib/constants';
 import { db } from '@/lib/db';
 import {
   Search,
-  Filter,
+  SlidersHorizontal,
   Download,
   Receipt,
   CheckCircle,
   Clock,
   X,
-  Calendar,
-  SlidersHorizontal,
   RotateCcw,
   Check,
+  Calendar,
   ChevronDown,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -50,9 +49,11 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [onlyReceipts, setOnlyReceipts] = useState(false);
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'>('date-desc');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Selected expense for detail & approval modal
+  // Bottom Sheet Filter Modal State
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+
+  // Selected expense for detail popup
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
 
   // Categories list
@@ -75,14 +76,16 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
   const last30DaysIST = getDateStringIST(-30);
   const currentMonthPrefix = todayIST.substring(0, 7); // YYYY-MM
 
-  // Check if any non-default filter is active
-  const hasActiveFilters =
-    searchQuery.trim() !== '' ||
-    datePreset !== 'all' ||
-    selectedApprovalStatus !== 'all' ||
-    selectedMethod !== 'all' ||
-    selectedCategory !== 'all' ||
-    onlyReceipts;
+  // Count active non-default filters
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (datePreset !== 'all') count++;
+    if (selectedApprovalStatus !== 'all') count++;
+    if (selectedMethod !== 'all') count++;
+    if (selectedCategory !== 'all') count++;
+    if (onlyReceipts) count++;
+    return count;
+  }, [datePreset, selectedApprovalStatus, selectedMethod, selectedCategory, onlyReceipts]);
 
   const resetAllFilters = () => {
     setSearchQuery('');
@@ -98,7 +101,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
   const filteredExpenses = useMemo(() => {
     return expenses
       .filter((e) => {
-        // 1. Text Search (Description, Vendor, Payer, Category)
+        // 1. Text Search
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
           const matchDesc = e.description.toLowerCase().includes(q);
@@ -269,205 +272,143 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
     { id: 'custom', labelEn: 'Custom 📅', labelHi: 'कस्टम तारीख 📅' },
   ];
 
+  // Helper for active date label
+  const activeDateLabel = useMemo(() => {
+    const found = datePresets.find((p) => p.id === datePreset);
+    if (!found || found.id === 'all') return null;
+    return isHindi ? found.labelHi : found.labelEn;
+  }, [datePreset, isHindi]);
+
   return (
-    <div className="space-y-4">
-      {/* Search & Top Action Bar */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-        <div className="flex items-center gap-2">
-          {/* Search Box */}
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-            <input
-              type="text"
-              placeholder={isHindi ? 'खर्च, सप्लायर, श्रेणी या नाम खोजें...' : 'Search purpose, vendor, category...'}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-cyan-500 focus:bg-white transition-colors"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Advanced Filter Toggle */}
-          <button
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all ${
-              showAdvancedFilters || hasActiveFilters
-                ? 'bg-cyan-50 border-cyan-300 text-cyan-800'
-                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{isHindi ? 'फिल्टर' : 'Filters'}</span>
-            {hasActiveFilters && (
-              <span className="w-2 h-2 rounded-full bg-cyan-600 animate-pulse" />
-            )}
-          </button>
-
-          {/* Export CSV Button */}
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 text-xs font-bold transition-colors shadow-sm"
-            title="Download CSV Report"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{isHindi ? 'CSV डाउनलोड' : 'Export'}</span>
-          </button>
-        </div>
-
-        {/* Professional Date Preset Chips Bar */}
-        <div className="pt-1">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
-            {datePresets.map((preset) => {
-              const isSelected = datePreset === preset.id;
-              return (
-                <button
-                  key={preset.id}
-                  onClick={() => setDatePreset(preset.id)}
-                  className={`px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all active:scale-95 ${
-                    isSelected
-                      ? 'bg-cyan-700 text-white shadow-sm shadow-cyan-700/20'
-                      : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
-                  }`}
-                >
-                  {isHindi ? preset.labelHi : preset.labelEn}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Custom Date Range Picker Accordion */}
-          {datePreset === 'custom' && (
-            <div className="mt-3 p-3 bg-cyan-50/70 border border-cyan-200 rounded-2xl flex flex-wrap items-center gap-3 animate-in fade-in duration-150">
-              <div className="flex items-center gap-2 flex-1 min-w-[140px]">
-                <label className="text-xs font-bold text-cyan-900">
-                  {isHindi ? 'तारीख से:' : 'From:'}
-                </label>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-white border border-cyan-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-cyan-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 flex-1 min-w-[140px]">
-                <label className="text-xs font-bold text-cyan-900">
-                  {isHindi ? 'तारीख तक:' : 'To:'}
-                </label>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-white border border-cyan-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-cyan-500"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Secondary Filter Dropdown Controls */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
-          {/* Approval Status Filter */}
-          <select
-            value={selectedApprovalStatus}
-            onChange={(e) => setSelectedApprovalStatus(e.target.value as any)}
-            className={`border rounded-xl px-2.5 py-1.5 text-xs font-bold outline-none transition-colors ${
-              selectedApprovalStatus !== 'all'
-                ? 'bg-amber-50 text-amber-900 border-amber-300'
-                : 'bg-slate-50 text-slate-700 border-slate-200'
-            }`}
-          >
-            <option value="all">{isHindi ? 'मंजूरी: सभी स्थिति' : 'Approvals: All'}</option>
-            <option value="pending">{isHindi ? '⏳ मंजूरी बाकी (Pending)' : '⏳ Pending Approval'}</option>
-            <option value="verified">{isHindi ? '✓ मंजूरशुदा (Approved)' : '✓ Approved'}</option>
-          </select>
-
-          {/* Payment Method filter */}
-          <select
-            value={selectedMethod}
-            onChange={(e) => setSelectedMethod(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none"
-          >
-            <option value="all">{isHindi ? 'सभी माध्यम' : 'All Methods'}</option>
-            <option value="cash">{isHindi ? 'नकद (Cash)' : 'Cash'}</option>
-            <option value="upi">{isHindi ? 'UPI (GPay / PhonePe)' : 'UPI'}</option>
-            <option value="bank_transfer">{isHindi ? 'बैंक ट्रांसफर' : 'Bank Transfer'}</option>
-          </select>
-
-          {/* Category filter */}
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none max-w-[150px] truncate"
-          >
-            <option value="all">{isHindi ? 'सभी श्रेणियां' : 'All Categories'}</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {isHindi ? c.nameHi : c.nameEn}
-              </option>
-            ))}
-          </select>
-
-          {/* Sort selector */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none"
-          >
-            <option value="date-desc">{isHindi ? 'तारीख (नया पहले)' : 'Date: Newest'}</option>
-            <option value="date-asc">{isHindi ? 'तारीख (पुराना पहले)' : 'Date: Oldest'}</option>
-            <option value="amount-desc">{isHindi ? 'रकम (अधिक से कम)' : 'Amount: High to Low'}</option>
-            <option value="amount-asc">{isHindi ? 'रकम (कम से अधिक)' : 'Amount: Low to High'}</option>
-          </select>
-
-          {/* Receipt toggle filter */}
-          <button
-            onClick={() => setOnlyReceipts(!onlyReceipts)}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1 ${
-              onlyReceipts
-                ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
-                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-            }`}
-          >
-            <Receipt className="w-3.5 h-3.5" />
-            <span>{isHindi ? 'सिर्फ बिल' : 'Receipts'}</span>
-          </button>
-
-          {/* Reset Filters button if any filter is active */}
-          {hasActiveFilters && (
+    <div className="space-y-3.5">
+      {/* 1. Ultra-Clean Top Bar (Single Row Only!) */}
+      <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-sm flex items-center gap-2">
+        {/* Search Input */}
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder={isHindi ? 'खर्च, वेंडर, श्रेणी खोजें...' : 'Search expenses...'}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-cyan-500 focus:bg-white transition-colors"
+          />
+          {searchQuery && (
             <button
-              onClick={resetAllFilters}
-              className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center gap-1 transition-colors"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
             >
-              <RotateCcw className="w-3 h-3" />
-              <span>{isHindi ? 'रीसेट' : 'Reset'}</span>
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
+
+        {/* Filter Trigger Button with badge count */}
+        <button
+          onClick={() => setIsFilterSheetOpen(true)}
+          className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
+            activeFiltersCount > 0
+              ? 'bg-cyan-50 border-cyan-400 text-cyan-900 shadow-sm'
+              : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+          }`}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-700" />
+          <span className="hidden sm:inline">{isHindi ? 'फिल्टर' : 'Filters'}</span>
+          {activeFiltersCount > 0 && (
+            <span className="px-1.5 py-0.2 bg-cyan-700 text-white rounded-full text-[10px] font-black leading-tight">
+              {activeFiltersCount}
+            </span>
+          )}
+        </button>
+
+        {/* Export CSV Button */}
+        <button
+          onClick={handleExportCSV}
+          className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm active:scale-95"
+          title="Export CSV"
+        >
+          <Download className="w-4 h-4 text-cyan-400" />
+          <span className="hidden sm:inline">{isHindi ? 'एक्सपोर्ट' : 'Export'}</span>
+        </button>
       </div>
 
-      {/* Professional Financial Summary Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-cyan-950 p-4 rounded-3xl text-white shadow-md flex items-center justify-between">
+      {/* 2. Active Filter Pills (Shown only when active filters exist) */}
+      {(activeFiltersCount > 0 || searchQuery) && (
+        <div className="flex flex-wrap items-center gap-1.5 px-1">
+          {activeDateLabel && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-900 text-[11px] font-bold border border-cyan-200 animate-in fade-in">
+              <Calendar className="w-3 h-3 text-cyan-700" />
+              <span>{activeDateLabel}</span>
+              <button
+                onClick={() => setDatePreset('all')}
+                className="hover:text-cyan-950 ml-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
+          {selectedApprovalStatus !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200 animate-in fade-in">
+              <span>
+                {selectedApprovalStatus === 'verified'
+                  ? isHindi
+                    ? 'मंजूरशुदा'
+                    : 'Approved'
+                  : isHindi
+                  ? 'मंजूरी बाकी'
+                  : 'Pending Approval'}
+              </span>
+              <button
+                onClick={() => setSelectedApprovalStatus('all')}
+                className="hover:text-amber-950 ml-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
+          {selectedMethod !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-200 text-slate-800 text-[11px] font-bold animate-in fade-in">
+              <span className="uppercase">{selectedMethod}</span>
+              <button onClick={() => setSelectedMethod('all')} className="hover:text-slate-950 ml-0.5">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
+          {onlyReceipts && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-900 text-[11px] font-bold border border-cyan-200 animate-in fade-in">
+              <span>{isHindi ? 'सिर्फ बिल' : 'With Receipts'}</span>
+              <button onClick={() => setOnlyReceipts(false)} className="hover:text-cyan-950 ml-0.5">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
+          <button
+            onClick={resetAllFilters}
+            className="text-[11px] font-bold text-rose-600 hover:text-rose-800 underline ml-1"
+          >
+            {isHindi ? 'सभी हटाएं (Clear all)' : 'Clear all'}
+          </button>
+        </div>
+      )}
+
+      {/* 3. Sleek Financial Summary Ribbon */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-cyan-950 p-4 rounded-2xl text-white shadow-md flex items-center justify-between">
         <div>
           <span className="text-[11px] text-cyan-300 font-bold uppercase tracking-wider block">
-            {isHindi ? 'कुल खर्च (फिल्टर अनुसार)' : 'Total Filtered Spend'}
+            {isHindi ? 'कुल खर्च (फिल्टर अनुसार)' : 'Total Spend'}
           </span>
           <span className="text-2xl font-black text-white tracking-tight">
             {formatINR(totalAmountPaise)}
           </span>
         </div>
 
-        {/* Detailed Count Badges */}
         <div className="text-right space-y-1">
           <span className="text-xs text-slate-300 font-bold block">
-            {filteredExpenses.length} {isHindi ? 'कुल रिकॉर्ड' : 'records'}
+            {filteredExpenses.length} {isHindi ? 'रिकॉर्ड' : 'entries'}
           </span>
           <div className="flex items-center justify-end gap-1.5 text-[10px] font-bold">
             {pendingCount > 0 && (
@@ -484,23 +425,23 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
         </div>
       </div>
 
-      {/* Expense Card List */}
+      {/* 4. Transaction Cards (Visible immediately, no scrolling required!) */}
       <div className="space-y-2.5">
         {filteredExpenses.length === 0 ? (
-          <div className="bg-white p-8 rounded-3xl border border-slate-200 text-center shadow-sm">
-            <Filter className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+          <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center shadow-sm">
+            <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-2" />
             <h4 className="font-bold text-slate-700 text-sm">
               {isHindi ? 'इस फिल्टर में कोई खर्च नहीं मिला' : 'No expenses match this filter'}
             </h4>
             <p className="text-xs text-slate-400 mt-1">
-              {isHindi ? 'कृपया तारीख या अन्य फिल्टर बदलकर देखें।' : 'Try selecting a different date range or resetting filters.'}
+              {isHindi ? 'कृपया तारीख या अन्य फिल्टर बदलकर देखें।' : 'Try changing your filter settings.'}
             </p>
-            {hasActiveFilters && (
+            {activeFiltersCount > 0 && (
               <button
                 onClick={resetAllFilters}
                 className="mt-3 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl transition-colors"
               >
-                {isHindi ? 'सभी फिल्टर रीसेट करें' : 'Reset All Filters'}
+                {isHindi ? 'सभी फिल्टर हटाएं' : 'Clear Filters'}
               </button>
             )}
           </div>
@@ -513,7 +454,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
               <div
                 key={item.clientUuid}
                 onClick={() => setSelectedExpense(item)}
-                className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm hover:border-cyan-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99]"
+                className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-cyan-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99]"
               >
                 {/* Left: Description, Date, Vendor, Category */}
                 <div className="flex-1 min-w-0">
@@ -572,7 +513,224 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
         )}
       </div>
 
-      {/* Expense Detail & Approval Popup */}
+      {/* 5. The Revolut/Apple-Style Filter Bottom Sheet */}
+      {isFilterSheetOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm p-0 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in slide-in-from-bottom duration-300 border-t border-slate-200">
+            {/* Sheet Handle & Header */}
+            <div className="px-6 pt-3 pb-3 border-b border-slate-100">
+              <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-3" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">
+                    {isHindi ? 'फिल्टर एवं तारीख' : 'Filters & Date Range'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {isHindi ? 'अपनी सुविधानुसार खर्च छांटें' : 'Refine ledger results'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsFilterSheetOpen(false)}
+                  className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Sheet Content */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              {/* SECTION A: Date Range Presets */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  {isHindi ? 'तारीख का दायरा (Date Range)' : 'Date Range'}
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {datePresets.map((preset) => {
+                    const isSelected = datePreset === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => setDatePreset(preset.id)}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                          isSelected
+                            ? 'bg-cyan-700 text-white border-cyan-700 shadow-sm'
+                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {isHindi ? preset.labelHi : preset.labelEn}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Date Inputs if Custom Selected */}
+                {datePreset === 'custom' && (
+                  <div className="mt-3 p-3.5 bg-cyan-50/70 border border-cyan-200 rounded-2xl grid grid-cols-2 gap-3 animate-in fade-in duration-150">
+                    <div>
+                      <label className="block text-[11px] font-bold text-cyan-950 mb-1">
+                        {isHindi ? 'तारीख से (From)' : 'From Date'}
+                      </label>
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-cyan-300 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-cyan-950 mb-1">
+                        {isHindi ? 'तारीख तक (To)' : 'To Date'}
+                      </label>
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-cyan-300 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION B: Approval Status */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  {isHindi ? 'मंजूरी स्थिति (Approval Status)' : 'Approval Status'}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'all' as const, labelHi: 'सभी (All)', labelEn: 'All' },
+                    { id: 'pending' as const, labelHi: '⏳ बाकी', labelEn: 'Pending' },
+                    { id: 'verified' as const, labelHi: '✓ मंजूर', labelEn: 'Approved' },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedApprovalStatus(item.id)}
+                      className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                        selectedApprovalStatus === item.id
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {isHindi ? item.labelHi : item.labelEn}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* SECTION C: Payment Method */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  {isHindi ? 'भुगतान माध्यम (Payment Method)' : 'Payment Method'}
+                </label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { id: 'all', label: 'All' },
+                    { id: 'cash', label: 'Cash' },
+                    { id: 'upi', label: 'UPI' },
+                    { id: 'bank_transfer', label: 'Bank' },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setSelectedMethod(m.id)}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                        selectedMethod === m.id
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* SECTION D: Category & Sorting */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    {isHindi ? 'खर्च श्रेणी' : 'Category'}
+                  </label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                  >
+                    <option value="all">{isHindi ? 'सभी श्रेणियां' : 'All Categories'}</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {isHindi ? c.nameHi : c.nameEn}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    {isHindi ? 'क्रम (Sort Order)' : 'Sort Order'}
+                  </label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                  >
+                    <option value="date-desc">{isHindi ? 'तारीख (नया पहले)' : 'Date: Newest'}</option>
+                    <option value="date-asc">{isHindi ? 'तारीख (पुराना पहले)' : 'Date: Oldest'}</option>
+                    <option value="amount-desc">{isHindi ? 'रकम (अधिक से कम)' : 'Amount: High to Low'}</option>
+                    <option value="amount-asc">{isHindi ? 'रकम (कम से अधिक)' : 'Amount: Low to High'}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Only With Receipts Toggle */}
+              <div className="pt-1">
+                <label
+                  onClick={() => setOnlyReceipts(!onlyReceipts)}
+                  className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-cyan-600" />
+                    <span className="text-xs font-bold text-slate-800">
+                      {isHindi ? 'सिर्फ बिल संलग्न खर्च दिखाएं' : 'Show only expenses with receipts'}
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={onlyReceipts}
+                    onChange={() => {}}
+                    className="w-4 h-4 text-cyan-600 rounded"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="py-3 px-4 rounded-2xl border border-slate-300 bg-white text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors"
+              >
+                {isHindi ? 'रीसेट (Reset)' : 'Reset'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsFilterSheetOpen(false)}
+                className="flex-1 py-3 px-5 rounded-2xl bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-black shadow-md shadow-cyan-700/20 active:scale-98 transition-all text-center"
+              >
+                {isHindi ? `लागू करें (${filteredExpenses.length} रिकॉर्ड)` : `Apply (${filteredExpenses.length} entries)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Expense Detail & 1-Click Approval Popup */}
       {selectedExpense && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
           <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
