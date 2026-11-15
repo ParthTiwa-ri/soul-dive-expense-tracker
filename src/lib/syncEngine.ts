@@ -65,21 +65,102 @@ export async function compressImage(file: File): Promise<{ blob: Blob; dataUrl: 
 }
 
 /**
- * Triggers synchronization of all pending offline expenses
+ * Pulls newly synchronized expenses from the server / Supabase into local Dexie IndexedDB
+ * so both users (Father and Parth) can see each other's expenses in real time.
  */
-export async function syncPendingExpenses(): Promise<{ syncedCount: number; failedCount: number }> {
+export async function pullRemoteExpenses(): Promise<number> {
   if (typeof window === 'undefined' || !navigator.onLine) {
-    return { syncedCount: 0, failedCount: 0 };
+    return 0;
   }
 
-  // Get all pending or failed expenses in creation order
+  try {
+    const response = await fetch('/api/sync/expenses');
+    if (!response.ok) return 0;
+
+    const data = await response.json();
+    const remoteRecords = data.records || [];
+    if (!Array.isArray(remoteRecords) || remoteRecords.length === 0) return 0;
+
+    let pulledCount = 0;
+    for (const r of remoteRecords) {
+      const clientUuid = r.clientUuid || r.client_uuid;
+      if (!clientUuid) continue;
+
+      const existing = await db.expenses.get(clientUuid);
+
+      // If record does not exist locally (e.g. logged on the other person's phone)
+      if (!existing) {
+        const newExpense: Expense = {
+          id: r.id,
+          clientUuid,
+          amountPaise: Number(r.amountPaise || r.amount_paise),
+          currency: r.currency || 'INR',
+          description: r.description || '',
+          categoryId: r.categoryId || r.category_id || 'cat-other-construction',
+          categoryName: r.categoryName || r.category_name,
+          categoryNameHi: r.categoryNameHi || r.category_name_hi,
+          vendorId: r.vendorId || r.vendor_id,
+          vendorName: r.vendorName || r.vendor_name,
+          phaseId: r.phaseId || r.phase_id || 'phase-construction',
+          phaseName: r.phaseName || r.phase_name,
+          paymentMethod: r.paymentMethod || r.payment_method || 'cash',
+          paymentDate: r.paymentDate || r.payment_date || new Date().toISOString().split('T')[0],
+          paymentTime: r.paymentTime || r.payment_time,
+          paidByUserId: r.paidByUserId || r.paid_by_user_id,
+          paidByName: r.paidByName || r.paid_by_name || 'पिताजी',
+          submittedByUserId: r.submittedByUserId || r.submitted_by_user_id,
+          submittedByName: r.submittedByName || r.submitted_by_name || 'पिताजी',
+          notes: r.notes,
+          recordType: r.recordType || r.record_type || 'expense',
+          status: r.status || 'active',
+          verificationStatus: r.verificationStatus || r.verification_status || 'pending',
+          verifiedByUserId: r.verifiedByUserId || r.verified_by_user_id,
+          verifiedByName: r.verifiedByName || r.verified_by_name,
+          verifiedAt: r.verifiedAt || r.verified_at,
+          deviceCreatedAt: r.deviceCreatedAt || r.device_created_at || r.created_at || new Date().toISOString(),
+          serverCreatedAt: r.serverCreatedAt || r.created_at,
+          syncStatus: 'synced',
+          hasReceipt: Boolean(r.hasReceipt || r.has_receipt),
+          receiptDataUrl: r.receiptDataUrl || r.receipt_data_url,
+        };
+
+        await db.expenses.add(newExpense);
+        pulledCount++;
+      } else if (existing.syncStatus === 'synced') {
+        // If the other user updated the verification status (e.g. Parth approved it)
+        const remoteStatus = r.verificationStatus || r.verification_status;
+        if (remoteStatus && remoteStatus !== existing.verificationStatus) {
+          await db.expenses.update(clientUuid, {
+            verificationStatus: remoteStatus,
+            verifiedByUserId: r.verifiedByUserId || r.verified_by_user_id,
+            verifiedByName: r.verifiedByName || r.verified_by_name,
+            verifiedAt: r.verifiedAt || r.verified_at,
+          });
+        }
+      }
+    }
+
+    return pulledCount;
+  } catch (err) {
+    console.warn('Failed to pull remote expenses:', err);
+    return 0;
+  }
+}
+
+/**
+ * Triggers bidirectional synchronization:
+ * 1. Pushes local offline expenses to the server
+ * 2. Pulls new expenses added by the other device into local IndexedDB
+ */
+export async function syncPendingExpenses(): Promise<{ syncedCount: number; failedCount: number; pulledCount: number }> {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return { syncedCount: 0, failedCount: 0, pulledCount: 0 };
+  }
+
+  // 1. Push Phase: Get all pending or failed expenses in creation order
   const pendingRecords = await db.expenses
     .filter((e) => e.syncStatus === 'pending' || e.syncStatus === 'failed')
     .sortBy('deviceCreatedAt');
-
-  if (pendingRecords.length === 0) {
-    return { syncedCount: 0, failedCount: 0 };
-  }
 
   let syncedCount = 0;
   let failedCount = 0;
@@ -150,6 +231,9 @@ export async function syncPendingExpenses(): Promise<{ syncedCount: number; fail
     }
   }
 
-  return { syncedCount, failedCount };
+  // 2. Pull Phase: Pull any expenses created on the other user's device
+  const pulledCount = await pullRemoteExpenses();
+
+  return { syncedCount, failedCount, pulledCount };
 }
 

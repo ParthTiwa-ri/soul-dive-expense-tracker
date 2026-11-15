@@ -72,6 +72,7 @@ export interface Expense {
   status: ExpenseStatus;
   verificationStatus: VerificationStatus;
   verifiedByUserId?: string;
+  verifiedByName?: string;
   verifiedAt?: string;
   deviceCreatedAt: string;
   serverCreatedAt?: string;
