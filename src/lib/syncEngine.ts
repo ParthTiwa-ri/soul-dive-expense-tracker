@@ -1,5 +1,6 @@
 import { db } from './db';
 import { Expense } from '@/types';
+import { supabase } from './supabase';
 
 export interface SyncStats {
   pendingCount: number;
@@ -65,6 +66,25 @@ export async function compressImage(file: File): Promise<{ blob: Blob; dataUrl: 
 }
 
 /**
+ * Broadcasts an expense modification event over Supabase Realtime (< 50ms)
+ * to instantly notify all other connected devices without waiting for polling.
+ */
+export function broadcastExpenseChange() {
+  if (typeof window !== 'undefined' && supabase) {
+    try {
+      const channel = supabase.channel('expenses_live');
+      channel.send({
+        type: 'broadcast',
+        event: 'expense_updated',
+        payload: { timestamp: Date.now() },
+      });
+    } catch (e) {
+      // Non-blocking
+    }
+  }
+}
+
+/**
  * Deletes an expense from the remote server / Supabase
  */
 export async function deleteRemoteExpense(clientUuid: string): Promise<boolean> {
@@ -75,6 +95,7 @@ export async function deleteRemoteExpense(clientUuid: string): Promise<boolean> 
     await fetch(`/api/sync/expenses?clientUuid=${encodeURIComponent(clientUuid)}`, {
       method: 'DELETE',
     });
+    broadcastExpenseChange();
     return true;
   } catch (err) {
     console.warn('Failed to delete remote expense:', err);
@@ -152,15 +173,45 @@ export async function pullRemoteExpenses(): Promise<number> {
         await db.expenses.add(newExpense);
         pulledCount++;
       } else if (existing.syncStatus === 'synced') {
-        // If the other user updated the verification status (e.g. Manu approved it)
+        const remoteAmount = Number(r.amountPaise || r.amount_paise);
+        const remoteDesc = r.description || '';
         const remoteStatus = r.verificationStatus || r.verification_status;
-        if (remoteStatus && remoteStatus !== existing.verificationStatus) {
+        const remoteRecordStatus = r.status || 'active';
+
+        // Check if remote has updates (e.g. edited or approved on the other phone/laptop)
+        const hasChanged =
+          (remoteAmount > 0 && remoteAmount !== existing.amountPaise) ||
+          (remoteDesc && remoteDesc !== existing.description) ||
+          (remoteStatus && remoteStatus !== existing.verificationStatus) ||
+          (remoteRecordStatus && remoteRecordStatus !== existing.status) ||
+          (r.categoryName && r.categoryName !== existing.categoryName) ||
+          (r.vendorName !== undefined && r.vendorName !== existing.vendorName) ||
+          (r.notes !== undefined && r.notes !== existing.notes);
+
+        if (hasChanged) {
           await db.expenses.update(clientUuid, {
-            verificationStatus: remoteStatus,
-            verifiedByUserId: r.verifiedByUserId || r.verified_by_user_id,
-            verifiedByName: r.verifiedByName || r.verified_by_name,
-            verifiedAt: r.verifiedAt || r.verified_at,
+            amountPaise: remoteAmount > 0 ? remoteAmount : existing.amountPaise,
+            description: remoteDesc || existing.description,
+            categoryId: r.categoryId || r.category_id || existing.categoryId,
+            categoryName: r.categoryName || r.category_name || existing.categoryName,
+            categoryNameHi: r.categoryNameHi || r.category_name_hi || existing.categoryNameHi,
+            vendorId: r.vendorId || r.vendor_id || existing.vendorId,
+            vendorName: r.vendorName || r.vendor_name || existing.vendorName,
+            phaseId: r.phaseId || r.phase_id || existing.phaseId,
+            phaseName: r.phaseName || r.phase_name || existing.phaseName,
+            paymentMethod: r.paymentMethod || r.payment_method || existing.paymentMethod,
+            paymentDate: r.paymentDate || r.payment_date || existing.paymentDate,
+            paymentTime: r.paymentTime || r.payment_time || existing.paymentTime,
+            notes: r.notes !== undefined ? r.notes : existing.notes,
+            status: remoteRecordStatus,
+            verificationStatus: remoteStatus || existing.verificationStatus,
+            verifiedByUserId: r.verifiedByUserId || r.verified_by_user_id || existing.verifiedByUserId,
+            verifiedByName: r.verifiedByName || r.verified_by_name || existing.verifiedByName,
+            verifiedAt: r.verifiedAt || r.verified_at || existing.verifiedAt,
+            hasReceipt: r.hasReceipt !== undefined ? Boolean(r.hasReceipt) : (r.has_receipt !== undefined ? Boolean(r.has_receipt) : existing.hasReceipt),
+            receiptDataUrl: r.receiptDataUrl || r.receipt_data_url || existing.receiptDataUrl,
           });
+          pulledCount++;
         }
       }
     }
@@ -206,9 +257,11 @@ export async function syncPendingExpenses(): Promise<{ syncedCount: number; fail
         description: record.description,
         categoryId: record.categoryId,
         categoryName: record.categoryName,
+        categoryNameHi: record.categoryNameHi,
         vendorId: record.vendorId,
         vendorName: record.vendorName,
         phaseId: record.phaseId,
+        phaseName: record.phaseName,
         paymentMethod: record.paymentMethod,
         paymentDate: record.paymentDate,
         paymentTime: record.paymentTime,
@@ -219,6 +272,10 @@ export async function syncPendingExpenses(): Promise<{ syncedCount: number; fail
         notes: record.notes,
         recordType: record.recordType,
         status: record.status,
+        verificationStatus: record.verificationStatus,
+        verifiedByUserId: record.verifiedByUserId,
+        verifiedByName: record.verifiedByName,
+        verifiedAt: record.verifiedAt,
         deviceCreatedAt: record.deviceCreatedAt,
         hasReceipt: record.hasReceipt,
         receiptDataUrl: record.receiptDataUrl, // base64 receipt
@@ -264,6 +321,93 @@ export async function syncPendingExpenses(): Promise<{ syncedCount: number; fail
   // 2. Pull Phase: Pull any expenses created on the other user's device
   const pulledCount = await pullRemoteExpenses();
 
+  if (syncedCount > 0) {
+    broadcastExpenseChange();
+  }
+
   return { syncedCount, failedCount, pulledCount };
+}
+
+/**
+ * Applies a live Supabase Realtime broadcast event directly to local Dexie IndexedDB
+ * giving instant, sub-second multi-device UI updates without page refreshes.
+ */
+export async function applyRemoteRealtimeEvent(
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE',
+  row: any
+): Promise<void> {
+  if (!row) return;
+  const clientUuid = row.client_uuid || row.clientUuid;
+  if (!clientUuid) return;
+
+  if (eventType === 'DELETE' || row.status === 'voided') {
+    await db.expenses.delete(clientUuid);
+    return;
+  }
+
+  const existing = await db.expenses.get(clientUuid);
+
+  if (!existing) {
+    const newExpense: Expense = {
+      id: row.id,
+      clientUuid,
+      amountPaise: Number(row.amount_paise || row.amountPaise),
+      currency: row.currency || 'INR',
+      description: row.description || '',
+      categoryId: row.category_id || row.categoryId || 'cat-other-construction',
+      categoryName: row.category_name || row.categoryName,
+      categoryNameHi: row.category_name_hi || row.categoryNameHi,
+      vendorId: row.vendor_id || row.vendorId,
+      vendorName: row.vendor_name || row.vendorName,
+      phaseId: row.phase_id || row.phaseId || 'phase-construction',
+      phaseName: row.phase_name || row.phaseName,
+      paymentMethod: row.payment_method || row.paymentMethod || 'cash',
+      paymentDate: row.payment_date || row.paymentDate || new Date().toISOString().split('T')[0],
+      paymentTime: row.payment_time || row.paymentTime,
+      paidByUserId: row.paid_by_user_id || row.paidByUserId,
+      paidByName: row.paid_by_name || row.paidByName || 'कृष्ण मुरारी तिवारी',
+      submittedByUserId: row.submitted_by_user_id || row.submittedByUserId,
+      submittedByName: row.submitted_by_name || row.submittedByName || 'कृष्ण मुरारी तिवारी',
+      notes: row.notes,
+      recordType: row.record_type || row.recordType || 'expense',
+      status: row.status || 'active',
+      verificationStatus: row.verification_status || row.verificationStatus || 'pending',
+      verifiedByUserId: row.verified_by_user_id || row.verifiedByUserId,
+      verifiedByName: row.verified_by_name || row.verifiedByName,
+      verifiedAt: row.verified_at || row.verifiedAt,
+      deviceCreatedAt: row.device_created_at || row.deviceCreatedAt || new Date().toISOString(),
+      serverCreatedAt: row.created_at || row.serverCreatedAt,
+      syncStatus: 'synced',
+      hasReceipt: Boolean(row.has_receipt || row.hasReceipt),
+      receiptDataUrl: row.receipt_data_url || row.receiptDataUrl,
+    };
+    await db.expenses.put(newExpense);
+  } else {
+    // Only update if existing is already synced to prevent overwriting pending local offline changes
+    if (existing.syncStatus === 'synced') {
+      await db.expenses.update(clientUuid, {
+        amountPaise: Number(row.amount_paise || row.amountPaise) || existing.amountPaise,
+        description: row.description || existing.description,
+        categoryId: row.category_id || row.categoryId || existing.categoryId,
+        categoryName: row.category_name || row.categoryName || existing.categoryName,
+        categoryNameHi: row.category_name_hi || row.categoryNameHi || existing.categoryNameHi,
+        vendorId: row.vendor_id || row.vendorId || existing.vendorId,
+        vendorName: row.vendor_name || row.vendorName || existing.vendorName,
+        phaseId: row.phase_id || row.phaseId || existing.phaseId,
+        phaseName: row.phase_name || row.phaseName || existing.phaseName,
+        paymentMethod: row.payment_method || row.paymentMethod || existing.paymentMethod,
+        paymentDate: row.payment_date || row.paymentDate || existing.paymentDate,
+        paymentTime: row.payment_time || row.paymentTime || existing.paymentTime,
+        notes: row.notes !== undefined ? row.notes : existing.notes,
+        status: row.status || existing.status,
+        verificationStatus: row.verification_status || row.verificationStatus || existing.verificationStatus,
+        verifiedByUserId: row.verified_by_user_id || row.verifiedByUserId || existing.verifiedByUserId,
+        verifiedByName: row.verified_by_name || row.verifiedByName || existing.verifiedByName,
+        verifiedAt: row.verified_at || row.verifiedAt || existing.verifiedAt,
+        hasReceipt: row.has_receipt !== undefined ? Boolean(row.has_receipt) : existing.hasReceipt,
+        receiptDataUrl: row.receipt_data_url || row.receiptDataUrl || existing.receiptDataUrl,
+      });
+    }
+  }
 }
 

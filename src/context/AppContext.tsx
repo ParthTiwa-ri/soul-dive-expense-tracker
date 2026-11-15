@@ -4,7 +4,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, UserRole } from '@/types';
 import { DEFAULT_PROFILES, SUPER_ADMIN_PROFILE, SUPER_ADMIN_SECRET_PIN } from '@/lib/constants';
 import { db, initializeLocalDatabase } from '@/lib/db';
-import { syncPendingExpenses, SyncStats } from '@/lib/syncEngine';
+import { syncPendingExpenses, applyRemoteRealtimeEvent, SyncStats } from '@/lib/syncEngine';
+import { supabase } from '@/lib/supabase';
 
 interface AppContextType {
   currentUser: UserProfile;
@@ -141,10 +142,93 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refreshSyncStats();
     const interval = setInterval(refreshSyncStats, 3000);
-    return () => clearInterval(interval);
+
+    // Initial background sync on startup if online
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      triggerSync();
+    }
+
+    // Adaptive background fallback sync every 8 seconds
+    const periodicSync = setInterval(() => {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        triggerSync();
+      }
+    }, 8000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(periodicSync);
+    };
   }, []);
 
-  // 3. Manual or automated sync trigger
+  // 3. Supabase Realtime Broadcast & CDC for instant, 0-refresh multi-device synchronization
+  useEffect(() => {
+    if (!supabase) return;
+
+    try {
+      const channel = supabase.channel('expenses_live');
+
+      // Instant client-to-client broadcast (< 50ms)
+      channel.on('broadcast', { event: 'expense_updated' }, async () => {
+        try {
+          await triggerSync();
+        } catch (err) {
+          console.warn('Realtime broadcast sync error:', err);
+        }
+      });
+
+      // Database WAL changes as secondary backup
+      channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expenses' },
+        async (payload) => {
+          try {
+            const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
+            await applyRemoteRealtimeEvent(payload.eventType as any, row);
+            await refreshSyncStats();
+          } catch (err) {
+            console.warn('Realtime local update error:', err);
+            triggerSync();
+          }
+        }
+      );
+
+      channel.subscribe();
+
+      return () => {
+        supabase?.removeChannel(channel);
+      };
+    } catch (e) {
+      console.warn('Realtime subscription setup failed:', e);
+    }
+  }, []);
+
+  // 4. Instant pull when user switches tabs or wakes up phone screen
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleFocus = () => {
+      if (navigator.onLine) {
+        triggerSync();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        triggerSync();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // 5. Manual or automated sync trigger
   const triggerSync = async () => {
     if (isSyncing || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
     setIsSyncing(true);

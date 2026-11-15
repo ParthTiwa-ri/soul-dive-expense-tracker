@@ -2,7 +2,8 @@ const CACHE_NAME = 'souldive-cache-v1';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',
-  '/offline',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {

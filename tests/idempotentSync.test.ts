@@ -111,5 +111,54 @@ describe('Server Idempotent Sync API (/api/sync/expenses)', () => {
     const found = getData.records.find((r: any) => (r.clientUuid || r.client_uuid) === toDeleteUuid);
     expect(found).toBeUndefined();
   });
+
+  it('should synchronize edits and verification approvals on existing records', async () => {
+    const editUuid = 'test-edit-uuid-' + Date.now();
+    const initialPayload = {
+      clientUuid: editUuid,
+      amountPaise: 300000, // ₹3,000
+      currency: 'INR',
+      description: 'पाइप फिटिंग सामग्री',
+      categoryId: 'cat-plumbing',
+      phaseId: 'phase-construction',
+      paymentMethod: 'cash',
+      paymentDate: '2026-11-15',
+      paidByUserId: '11111111-1111-1111-1111-111111111111',
+      paidByName: 'कृष्ण मुरारी तिवारी',
+      submittedByUserId: '11111111-1111-1111-1111-111111111111',
+      submittedByName: 'कृष्ण मुरारी तिवारी',
+      verificationStatus: 'pending',
+      deviceCreatedAt: new Date().toISOString(),
+    };
+
+    // 1. Initial creation
+    const res1 = await syncExpenseHandler({ json: async () => initialPayload } as any);
+    expect(res1.status).toBe(200);
+
+    // 2. Owner edits amount to ₹3,500 and approves
+    const updatedPayload = {
+      ...initialPayload,
+      amountPaise: 350000, // ₹3,500
+      description: 'पाइप फिटिंग सामग्री एवं एल्बो',
+      verificationStatus: 'verified',
+      verifiedByUserId: '22222222-2222-2222-2222-222222222222',
+      verifiedByName: 'Manu Shukla',
+      verifiedAt: new Date().toISOString(),
+    };
+
+    const res2 = await syncExpenseHandler({ json: async () => updatedPayload } as any);
+    expect(res2.status).toBe(200);
+    const data2 = await res2.json();
+    expect(data2.status).toBe('synced');
+
+    // 3. Verify GET reflects updated amount and verified status
+    const getRes = await getExpensesHandler();
+    const getData = await getRes.json();
+    const record = getData.records.find((r: any) => (r.clientUuid || r.client_uuid) === editUuid);
+    expect(record).toBeDefined();
+    expect(Number(record.amountPaise || record.amount_paise)).toBe(350000);
+    expect(record.description).toBe('पाइप फिटिंग सामग्री एवं एल्बो');
+    expect(record.verificationStatus || record.verification_status).toBe('verified');
+  });
 });
 

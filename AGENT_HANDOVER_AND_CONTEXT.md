@@ -236,5 +236,63 @@ Compiles Next.js with zero errors.
 - `3eef73c`: **refactor: remove daily cash reconciliation feature per user request**
 
 ---
+
+## 9. Database Schema Migrations & Zero Data Loss Policy
+
+Future updates that introduce new fields or tables must **NEVER destroy, erase, or corrupt existing production transactions**.
+
+### Golden Rules for Future Agents:
+1. **Additive PostgreSQL Migrations in Supabase:**
+   - Always create a new sequential file in `supabase/migrations/` (e.g. `20261115_004_...sql`).
+   - Use `ALTER TABLE table_name ADD COLUMN IF NOT EXISTS column_name DATA_TYPE DEFAULT ...;`.
+   - Never use `DROP TABLE` or `TRUNCATE`.
+   - Existing rows will automatically retain all past values and receive `DEFAULT` or `NULL` for the new column.
+
+2. **Dexie.js IndexedDB Versioning in `src/lib/db.ts`:**
+   - Whenever an IndexedDB schema index changes, increment the version using `this.version(N+1).stores(...)`.
+   - Never modify or remove existing past versions (`version(1)`, `version(2)`).
+   - Dexie runs automatic client-side migration when the user's phone loads the updated PWA, keeping all local expenses safe.
+
+3. **Multi-Device Sync Preservation (`src/lib/syncEngine.ts` & `src/app/api/sync/expenses/route.ts`):**
+   - When adding a new field to `Expense`, update 3 places:
+     1. `types/index.ts`
+     2. `payload` in `syncPendingExpenses()`
+     3. `hasChanged` check and local DB update in `pullRemoteExpenses()`
+   - Server route `/api/sync/expenses` will seamlessly sync the new field while maintaining idempotency on `clientUuid`.
+
+---
+
+## 10. Live Supabase Project & Automated Migration Command
+
+### Connected Supabase Project:
+- **Project URL:** `https://ksdekyjycfhrjsbtqrhb.supabase.co`
+- **Publishable Key:** `sb_publishable_Rv5PEEqEdR-f-no4Rx6FAg_x12BGz5a`
+- **Region:** South Asia (Mumbai, India)
+- **Local Env:** Configured in `.env.local`
+
+### Automated Database Migration Command:
+```bash
+npm run db:migrate
+```
+- Executes `scripts/migrate.mjs` directly against the live Supabase PostgreSQL database.
+- Tracks applied migrations in `_migrations` table.
+- **Never prompt the user to copy/paste SQL into Supabase dashboard.** Always run `npm run db:migrate` when introducing schema changes.
+
+### Vercel Deployment Configuration:
+When deploying to Vercel, ensure these environment variables are added in Project Settings:
+- `NEXT_PUBLIC_SUPABASE_URL`: `https://ksdekyjycfhrjsbtqrhb.supabase.co`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: `sb_publishable_Rv5PEEqEdR-f-no4Rx6FAg_x12BGz5a`
+
+---
+
+## 11. Zero-Refresh Instant Realtime Sync Architecture
+
+Multi-device synchronization operates across 4 complementary tiers:
+1. **Supabase Realtime Broadcast (< 50ms):** When any client creates, edits, or deletes an expense, `broadcastExpenseChange()` emits an `expense_updated` event on channel `expenses_live`. All listening devices trigger an immediate pull.
+2. **PostgreSQL CDC Stream (WAL):** Migration `20261115_004_enable_realtime.sql` added `expenses` to `supabase_realtime` publication with `REPLICA IDENTITY FULL`. The client listens on `postgres_changes` as a direct cloud database backup.
+3. **Tab Focus & Screen Wake Listener:** `window.onfocus` and `document.onvisibilitychange` automatically pull new expenses the moment a user unlocks their phone or switches tabs.
+4. **Adaptive Background Polling:** Runs every 8 seconds as a safety net for spotty cellular networks.
+
+---
 *Created on 2026-11-15 for seamless handover to subsequent agents.*
 

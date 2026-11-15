@@ -44,46 +44,38 @@ This guide provides simple, step-by-step instructions to connect **Supabase** (F
 
 ---
 
-### Step 2: Apply Database Schema & Master Data (1 Minute)
-You don't need to write any SQL manually — the schema files are already in this repo:
+### Step 2: Apply Database Schema & Migrations Automatically
 
-1. In your Supabase project dashboard, click on the **SQL Editor** tab in the left sidebar (icon looks like `>_`).
-2. Click **"New Query"**.
-3. Open [supabase/migrations/20261115_001_initial_schema.sql](supabase/migrations/20261115_001_initial_schema.sql), copy all lines, paste into the Supabase SQL editor, and click **"Run"** (green button).
-   - *This creates the `expenses`, `categories`, `vendors`, `project_phases`, and audit tables.*
-4. Open [supabase/migrations/20261115_002_seed_data.sql](supabase/migrations/20261115_002_seed_data.sql), copy all lines, paste into a new query, and click **"Run"**.
-   - *This preloads all water park categories (Cement, Labour, Transport, Food, Slides, etc.) and demo profiles.*
+You do **not** need to manually copy or paste SQL into the browser! We have an automated migration runner.
 
----
-
-### Step 3: Copy Your API Keys
-1. In your Supabase dashboard, click the **Settings (gear icon)** at the bottom left.
-2. Click **API** under Configuration.
-3. Copy these two values:
-   - **Project URL** (e.g. `https://xyzabcdefghijklm.supabase.co`)
-   - **anon / public key** (long token starting with `eyJ...`)
-
----
-
-### Step 4: Configure Your Environment Variables
-
-#### For Local Development on Your Laptop:
-Create a file named `.env.local` in the project root:
-```env
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+Simply run this command in your project terminal:
+```bash
+npm run db:migrate
 ```
-*(Replace with your actual Project URL and anon key).*
 
-#### For Production Hosting on Vercel:
-1. In your [Vercel Dashboard](https://vercel.com), select your `soul-dive-expense-tracker` project.
-2. Go to **Settings** → **Environment Variables**.
-3. Add:
-   | Key | Value |
-   |---|---|
-   | `NEXT_PUBLIC_SUPABASE_URL` | `https://your-project.supabase.co` |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `your-anon-key-here` |
+This will automatically connect to your Supabase PostgreSQL database, create any missing tables, apply new columns, and set up all security policies. It will output:
+```text
+🚀 Starting Soul Dive Supabase Automated Migration...
+✓ Connected to Supabase PostgreSQL database successfully.
+  ✓ Applied:  20261115_001_initial_schema.sql
+  ✓ Applied:  20261115_002_seed_data.sql
+  ✓ Applied:  20261115_003_production_policies_and_columns.sql
+🎉 Success: Database schema is 100% up to date!
+```
+
+---
+
+### Step 3: Production Hosting on Vercel
+
+1. In your [Vercel Dashboard](https://vercel.com), click **"Add New..."** → **"Project"** and import `soul-dive-expense-tracker`.
+2. Go to **Settings** → **Environment Variables** and add:
+
+| Key | Value | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://ksdekyjycfhrjsbtqrhb.supabase.co` | Live Supabase Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `sb_publishable_Rv5PEEqEdR-f-no4Rx6FAg_x12BGz5a` | Supabase Public Publishable Key |
+
+3. Click **"Save"** and **"Deploy"**. Vercel will build and deploy your app in ~60 seconds.
 4. Click **Save** and trigger a **Redeploy**.
 
 ---
