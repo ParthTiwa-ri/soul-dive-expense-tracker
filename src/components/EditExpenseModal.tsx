@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Expense, PaymentMethod, Category, ProjectPhase } from '@/types';
 import { db } from '@/lib/db';
-import { PAYMENT_METHODS, DEFAULT_CATEGORIES, DEFAULT_PHASES } from '@/lib/constants';
+import { PAYMENT_METHODS, DEFAULT_CATEGORIES, DEFAULT_PHASES, DEFAULT_PROFILES } from '@/lib/constants';
 import { compressImage, broadcastExpenseChange } from '@/lib/syncEngine';
 import {
   X,
@@ -44,6 +44,7 @@ export default function EditExpenseModal({
   const [vendorName, setVendorName] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentDate, setPaymentDate] = useState<string>('');
+  const [paidByUserId, setPaidByUserId] = useState<string>(DEFAULT_PROFILES[0].id);
   const [notes, setNotes] = useState<string>('');
 
   // Receipt image states
@@ -81,6 +82,7 @@ export default function EditExpenseModal({
       setVendorName(expense.vendorName || '');
       setPaymentMethod(expense.paymentMethod || 'cash');
       setPaymentDate(expense.paymentDate || new Date().toISOString().split('T')[0]);
+      setPaidByUserId(expense.paidByUserId || DEFAULT_PROFILES[0].id);
       setNotes(expense.notes || '');
       setReceiptPreview(expense.receiptDataUrl || null);
       setReceiptBlob(expense.receiptBlob || null);
@@ -145,6 +147,8 @@ export default function EditExpenseModal({
       const selectedCategory = categories.find((c) => c.id === categoryId);
       const amountPaise = Math.round(parsedRupees * 100);
 
+      const selectedPayer = DEFAULT_PROFILES.find((p) => p.id === paidByUserId) || DEFAULT_PROFILES[0];
+
       const updates: Partial<Expense> = {
         amountPaise,
         description: description.trim(),
@@ -154,6 +158,8 @@ export default function EditExpenseModal({
         vendorName: vendorName.trim() || undefined,
         paymentMethod,
         paymentDate,
+        paidByUserId: selectedPayer.id,
+        paidByName: selectedPayer.fullName,
         notes: notes.trim() || undefined,
         hasReceipt,
         receiptDataUrl: receiptPreview || undefined,
@@ -397,7 +403,34 @@ export default function EditExpenseModal({
             </div>
           </div>
 
-          {/* 6. Receipt Photo Section */}
+          {/* 6. Payer Selector: Father vs Manu */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              {isHindi ? 'किसने भुगतान किया (Paid By)' : 'Paid By'}
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {DEFAULT_PROFILES.map((profile) => {
+                const isSelected = paidByUserId === profile.id;
+                return (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    onClick={() => setPaidByUserId(profile.id)}
+                    disabled={isLocked}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                      isSelected
+                        ? 'border-cyan-600 bg-cyan-50/80 text-cyan-900 shadow-sm ring-1 ring-cyan-500'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                    } disabled:opacity-75`}
+                  >
+                    {profile.fullName}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 7. Receipt Photo Section */}
           <div className="pt-1">
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
               {isHindi ? 'बिल की फोटो (Receipt Photo)' : 'Receipt Photo'}
