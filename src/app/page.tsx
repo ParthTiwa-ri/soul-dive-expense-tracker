@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
 import { db } from '@/lib/db';
@@ -23,28 +24,21 @@ export default function HomePage() {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [manualInitialData, setManualInitialData] = useState<Partial<Expense> | null>(null);
 
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-
-  // Load expenses from IndexedDB
-  const loadExpenses = async () => {
-    try {
+  // Live reactive query directly linked to Dexie IndexedDB
+  const liveExpenses = useLiveQuery(
+    async () => {
       const allExpenses = await db.expenses.toArray();
-      // Sort newest deviceCreatedAt first
-      allExpenses.sort(
+      return allExpenses.sort(
         (a, b) => new Date(b.deviceCreatedAt).getTime() - new Date(a.deviceCreatedAt).getTime()
       );
-      setExpenses(allExpenses);
-    } catch (e) {
-      console.warn('Failed to load expenses from IndexedDB:', e);
-    }
-  };
+    },
+    [],
+    []
+  );
 
-  useEffect(() => {
-    loadExpenses();
-  }, []);
+  const expenses = liveExpenses || [];
 
   const handleExpenseSaved = (newExpense: Expense) => {
-    loadExpenses();
     // Attempt background sync if online
     if (navigator.onLine) {
       triggerSync();
@@ -159,7 +153,6 @@ export default function HomePage() {
 
               <RecentExpensesList
                 expenses={expenses.slice(0, 10)}
-                onRefresh={loadExpenses}
               />
             </div>
           </div>
@@ -191,7 +184,7 @@ export default function HomePage() {
             <h2 className="text-lg font-black text-slate-900 mb-3 px-1">
               {isHindi ? 'दैनिक नकद मिलान एवं सत्यापन' : 'Daily Reconciliation & Audit'}
             </h2>
-            <ReconciliationView expenses={expenses} onRefresh={loadExpenses} />
+            <ReconciliationView expenses={expenses} />
           </div>
         )}
       </main>

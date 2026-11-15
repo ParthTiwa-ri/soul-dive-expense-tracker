@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Expense, Category, PaymentMethod } from '@/types';
 import { formatINR, formatDateIST } from '@/lib/constants';
-import { Search, Filter, Download, Receipt, CheckCircle, Clock, X, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, Download, Receipt, CheckCircle, Clock, X, ArrowUpDown, RefreshCw, AlertTriangle } from 'lucide-react';
 
 interface LedgerViewProps {
   expenses: Expense[];
@@ -246,13 +246,29 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
               <span className="text-base font-extrabold text-slate-900">
                 {formatINR(item.amountPaise)}
               </span>
-              <span
-                className={`block text-[10px] font-bold uppercase ${
-                  item.syncStatus === 'synced' ? 'text-emerald-600' : 'text-amber-600'
-                }`}
-              >
-                {item.syncStatus}
-              </span>
+              <div className="mt-1 flex items-center justify-end">
+                {item.syncStatus === 'synced' ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <CheckCircle className="w-2.5 h-2.5 text-emerald-600" />
+                    {isHindi ? 'सर्वर पर सुरक्षित' : 'Synced'}
+                  </span>
+                ) : item.syncStatus === 'syncing' ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">
+                    <RefreshCw className="w-2.5 h-2.5 animate-spin text-cyan-600" />
+                    {isHindi ? 'सिंक हो रहा है...' : 'Syncing...'}
+                  </span>
+                ) : item.syncStatus === 'failed' ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                    <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
+                    {isHindi ? 'सिंक विफल' : 'Failed'}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                    <Clock className="w-2.5 h-2.5 text-amber-600" />
+                    {isHindi ? 'फोन में सेव (सिंक बाकी)' : 'Local Only'}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         ))}
