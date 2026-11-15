@@ -19,26 +19,19 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
   const isHindi = language === 'hi';
   const isSuperAdmin = currentUser.role === 'super_admin';
 
-  const [filterMode, setFilterMode] = useState<'pending' | 'verified'>('pending');
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isApprovingAll, setIsApprovingAll] = useState(false);
 
-  // Filter unverified and verified active expenses
+  // Filter unverified active expenses (Approval screen only focuses on pending expenses)
   const unverifiedExpenses = useMemo(() => {
     return expenses.filter(
       (e) => e.verificationStatus === 'pending' && e.status !== 'voided'
     );
   }, [expenses]);
 
-  const verifiedExpenses = useMemo(() => {
-    return expenses.filter(
-      (e) => e.verificationStatus === 'verified' && e.status !== 'voided'
-    );
-  }, [expenses]);
-
-  const displayList = filterMode === 'pending' ? unverifiedExpenses : verifiedExpenses;
+  const displayList = unverifiedExpenses;
 
   // Handle transaction approval / verification
   const handleApprove = async (clientUuid: string) => {
@@ -171,35 +164,10 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
             {unverifiedExpenses.length} {isHindi ? 'मंजूरी बाकी' : 'Pending'}
           </span>
         </div>
-
-        {/* Tab Filter: Pending vs Approved */}
-        <div className="mt-4 grid grid-cols-2 gap-2 bg-slate-800/80 p-1 rounded-xl">
-          <button
-            onClick={() => setFilterMode('pending')}
-            className={`py-2 text-xs font-bold rounded-lg transition-all ${
-              filterMode === 'pending'
-                ? 'bg-cyan-500 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            {isHindi ? 'मंजूरी बाकी' : 'Pending Review'} ({unverifiedExpenses.length})
-          </button>
-
-          <button
-            onClick={() => setFilterMode('verified')}
-            className={`py-2 text-xs font-bold rounded-lg transition-all ${
-              filterMode === 'verified'
-                ? 'bg-cyan-500 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            {isHindi ? 'मंजूरशुदा' : 'Approved'} ({verifiedExpenses.length})
-          </button>
-        </div>
       </div>
 
       {/* Bulk Quick Approve Card (when more than 1 pending) */}
-      {filterMode === 'pending' && unverifiedExpenses.length > 1 && (
+      {unverifiedExpenses.length > 1 && (
         <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
           <div>
             <span className="text-xs font-black text-emerald-950 block">
@@ -237,20 +205,12 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
           <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center shadow-sm">
             <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
             <h3 className="font-bold text-slate-800 text-sm">
-              {filterMode === 'pending'
-                ? isHindi
-                  ? 'कोई खर्च मंजूरी के लिए बाकी नहीं है!'
-                  : 'No transactions pending approval!'
-                : isHindi
-                ? 'अभी कोई मंजूरशुदा खर्च नहीं है'
-                : 'No approved transactions yet'}
+              {isHindi ? 'कोई खर्च मंजूरी के लिए बाकी नहीं है!' : 'No transactions pending approval!'}
             </h3>
             <p className="text-xs text-slate-400 mt-1">
-              {filterMode === 'pending'
-                ? isHindi
-                  ? 'सभी दर्ज खर्च सत्यापित किए जा चुके हैं।'
-                  : 'All recorded expenses have been verified.'
-                : ''}
+              {isHindi
+                ? 'सभी दर्ज खर्च सत्यापित किए जा चुके हैं।'
+                : 'All recorded expenses have been verified.'}
             </p>
           </div>
         ) : (
