@@ -1,4 +1,5 @@
 import { ParsedVoiceResult, PaymentMethod } from '@/types';
+import { getDateStringIST, getTodayIST } from './constants';
 
 // Map of Hindi number words to their numeric values
 const HINDI_NUMBERS: Record<string, number> = {
@@ -219,25 +220,20 @@ export function extractPaymentMethod(transcript: string): PaymentMethod {
 }
 
 /**
- * Extracts date from transcript (defaulting to today)
+ * Extracts date from transcript (defaulting to today in IST)
  */
 export function extractDate(transcript: string): string {
   const text = transcript.toLowerCase();
-  const today = new Date();
 
   if (text.includes('कल दिए थे') || text.includes('कल का') || text.includes('कल ')) {
-    const yest = new Date(today);
-    yest.setDate(yest.getDate() - 1);
-    return yest.toISOString().split('T')[0];
+    return getDateStringIST(-1);
   }
 
   if (text.includes('परसों')) {
-    const dby = new Date(today);
-    dby.setDate(dby.getDate() - 2);
-    return dby.toISOString().split('T')[0];
+    return getDateStringIST(-2);
   }
 
-  return today.toISOString().split('T')[0];
+  return getTodayIST();
 }
 
 /**

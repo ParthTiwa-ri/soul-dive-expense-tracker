@@ -77,6 +77,23 @@ export async function initializeLocalDatabase(): Promise<void> {
         expense.verifiedByName = 'Manu Shukla';
         changed = true;
       }
+
+      // Auto-heal expenses recorded in the early morning (midnight to 5:30 AM IST)
+      // where UTC lagging caused paymentDate to be stamped as yesterday
+      if (expense.deviceCreatedAt) {
+        try {
+          const istDateOfCreation = new Date(expense.deviceCreatedAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+          if (istDateOfCreation > expense.paymentDate) {
+            const diffHours = (Date.now() - new Date(expense.deviceCreatedAt).getTime()) / (1000 * 60 * 60);
+            if (diffHours < 12) {
+              expense.paymentDate = istDateOfCreation;
+              if (expense.syncStatus === 'synced') expense.syncStatus = 'pending';
+              changed = true;
+            }
+          }
+        } catch (e) {}
+      }
+
       return changed;
     });
 

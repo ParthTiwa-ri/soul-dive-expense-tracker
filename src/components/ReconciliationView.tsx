@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
-import { formatINR } from '@/lib/constants';
+import { formatINR, getTodayIST } from '@/lib/constants';
 import { db } from '@/lib/db';
 import { Scale, CheckCircle2, AlertCircle, ShieldCheck, Banknote } from 'lucide-react';
 
@@ -22,7 +22,7 @@ export default function ReconciliationView({ expenses, onRefresh }: Reconciliati
   const [isSaved, setIsSaved] = useState(false);
 
   // Today's Cash Expenses
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayIST();
 
   const todayCashExpenses = useMemo(() => {
     return expenses.filter(

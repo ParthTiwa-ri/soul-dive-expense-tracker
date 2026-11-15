@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServerClient, isSupabaseConfigured } from '../../../../lib/supabase';
+import { getTodayIST } from '../../../../lib/constants';
 
 // In-memory fallback ledger for local development before Supabase keys are configured
 interface StoredServerExpense {
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
       phase_id: body.phaseId,
       phase_name: body.phaseName,
       payment_method: body.paymentMethod || 'cash',
-      payment_date: body.paymentDate || new Date().toISOString().split('T')[0],
+      payment_date: body.paymentDate || getTodayIST(),
       payment_time: body.paymentTime,
       paid_by_user_id: body.paidByUserId,
       paid_by_name: body.paidByName,
@@ -274,7 +275,7 @@ export async function POST(req: NextRequest) {
       phaseId: body.phaseId,
       phaseName: body.phaseName,
       paymentMethod: body.paymentMethod || 'cash',
-      paymentDate: body.paymentDate || new Date().toISOString().split('T')[0],
+      paymentDate: body.paymentDate || getTodayIST(),
       paymentTime: body.paymentTime,
       paidByUserId: body.paidByUserId,
       paidByName: body.paidByName,

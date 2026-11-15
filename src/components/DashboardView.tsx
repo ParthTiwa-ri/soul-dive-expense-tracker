@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
-import { formatINR } from '@/lib/constants';
+import { formatINR, getTodayIST } from '@/lib/constants';
 import {
   BarChart,
   Bar,
@@ -111,7 +111,7 @@ export default function DashboardView({ expenses }: DashboardViewProps) {
   const [dailyRange, setDailyRange] = useState<DailyRange>('7d');
   const [chartType, setChartType] = useState<'area' | 'bar'>('area');
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayIST();
   const currentMonthStr = todayStr.substring(0, 7); // YYYY-MM
 
   // Metrics: active non-voided expenses

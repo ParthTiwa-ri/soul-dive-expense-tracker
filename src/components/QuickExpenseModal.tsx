@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Expense, PaymentMethod, Category, ProjectPhase } from '@/types';
 import { db } from '@/lib/db';
-import { PAYMENT_METHODS } from '@/lib/constants';
+import { PAYMENT_METHODS, getTodayIST } from '@/lib/constants';
 import { compressImage } from '@/lib/syncEngine';
 import { X, Check, Camera, ChevronDown, ChevronUp, Image as ImageIcon, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -35,7 +35,7 @@ export default function QuickExpenseModal({
   const [categoryId, setCategoryId] = useState<string>('cat-other-construction');
   const [vendorName, setVendorName] = useState<string>('');
   const [phaseId, setPhaseId] = useState<string>('phase-construction');
-  const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [paymentDate, setPaymentDate] = useState<string>(getTodayIST());
   const [notes, setNotes] = useState<string>('');
 
   // Receipt image capture
@@ -78,7 +78,7 @@ export default function QuickExpenseModal({
       setReceiptPreview(null);
       setReceiptBlob(null);
       setShowMoreDetails(false);
-      setPaymentDate(new Date().toISOString().split('T')[0]);
+      setPaymentDate(getTodayIST());
     }
   }, [initialData, isOpen]);
 

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Expense, PaymentMethod, Category, ProjectPhase } from '@/types';
 import { db } from '@/lib/db';
-import { PAYMENT_METHODS, DEFAULT_CATEGORIES, DEFAULT_PHASES, DEFAULT_PROFILES } from '@/lib/constants';
+import { PAYMENT_METHODS, DEFAULT_CATEGORIES, DEFAULT_PHASES, DEFAULT_PROFILES, getTodayIST } from '@/lib/constants';
 import { compressImage, broadcastExpenseChange } from '@/lib/syncEngine';
 import {
   X,
@@ -81,7 +81,7 @@ export default function EditExpenseModal({
       setCategoryId(expense.categoryId || 'cat-other-construction');
       setVendorName(expense.vendorName || '');
       setPaymentMethod(expense.paymentMethod || 'cash');
-      setPaymentDate(expense.paymentDate || new Date().toISOString().split('T')[0]);
+      setPaymentDate(expense.paymentDate || getTodayIST());
       setPaidByUserId(expense.paidByUserId || DEFAULT_PROFILES[0].id);
       setNotes(expense.notes || '');
       setReceiptPreview(expense.receiptDataUrl || null);

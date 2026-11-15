@@ -126,6 +126,22 @@ export function formatINR(paise: number, includeDecimals = false): string {
 }
 
 /**
+ * Helper to get date string in YYYY-MM-DD format for Asia/Kolkata (IST) timezone.
+ * offsetDays allows getting yesterday (-1) or tomorrow (+1) in IST.
+ */
+export function getDateStringIST(offsetDays = 0): string {
+  const d = new Date();
+  if (offsetDays !== 0) {
+    d.setDate(d.getDate() + offsetDays);
+  }
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
+
+export function getTodayIST(): string {
+  return getDateStringIST(0);
+}
+
+/**
  * Format date in Asia/Kolkata timezone
  */
 export function formatDateIST(dateStr: string, locale: 'hi' | 'en' = 'hi'): string {

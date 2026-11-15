@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Expense, Category } from '@/types';
-import { formatINR, formatDateIST, DEFAULT_CATEGORIES } from '@/lib/constants';
+import { formatINR, formatDateIST, DEFAULT_CATEGORIES, getDateStringIST, getTodayIST } from '@/lib/constants';
 import { db } from '@/lib/db';
 import {
   Search,
@@ -32,15 +32,6 @@ interface LedgerViewProps {
 }
 
 type DatePreset = 'all' | 'today' | 'this_month' | 'custom';
-
-// Helper to format date in YYYY-MM-DD for Asia/Kolkata timezone
-function getDateStringIST(offsetDays = 0): string {
-  const d = new Date();
-  if (offsetDays !== 0) {
-    d.setDate(d.getDate() + offsetDays);
-  }
-  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-}
 
 export default function LedgerView({ expenses }: LedgerViewProps) {
   const { language, currentUser, triggerSync, showToast } = useApp();
@@ -327,7 +318,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `SoulDive_Expenses_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `SoulDive_Expenses_${getTodayIST()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

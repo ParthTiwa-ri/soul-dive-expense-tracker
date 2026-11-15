@@ -5,7 +5,7 @@ import { useApp } from '@/context/AppContext';
 import { parseVoiceTranscript } from '@/lib/voiceParser';
 import { ParsedVoiceResult, Expense } from '@/types';
 import { db } from '@/lib/db';
-import { formatINR } from '@/lib/constants';
+import { formatINR, getTodayIST } from '@/lib/constants';
 import { Mic, MicOff, Check, RotateCcw, Edit3, X, AlertCircle, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -182,7 +182,7 @@ export default function VoiceRecorderModal({
         phaseId: 'phase-construction',
         phaseName: 'Construction (निर्माण)',
         paymentMethod: parsedResult.paymentMethod || 'cash',
-        paymentDate: parsedResult.paymentDate || new Date().toISOString().split('T')[0],
+        paymentDate: parsedResult.paymentDate || getTodayIST(),
         paidByUserId: currentUser.id,
         paidByName: currentUser.fullName,
         submittedByUserId: currentUser.id,
@@ -225,7 +225,7 @@ export default function VoiceRecorderModal({
       vendorName: parsedResult?.vendorName,
       paymentMethod: parsedResult?.paymentMethod || 'cash',
       categoryId: parsedResult?.categoryId,
-      paymentDate: parsedResult?.paymentDate || new Date().toISOString().split('T')[0],
+      paymentDate: parsedResult?.paymentDate || getTodayIST(),
     });
     onClose();
   };

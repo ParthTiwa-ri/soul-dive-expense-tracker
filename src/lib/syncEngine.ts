@@ -1,7 +1,7 @@
 import { db } from './db';
 import { Expense } from '@/types';
 import { supabase } from './supabase';
-import { DEFAULT_CATEGORIES } from './constants';
+import { DEFAULT_CATEGORIES, getTodayIST } from './constants';
 
 export interface SyncStats {
   pendingCount: number;
@@ -200,7 +200,7 @@ export async function pullRemoteExpenses(): Promise<number> {
           phaseId: r.phaseId || r.phase_id || 'phase-construction',
           phaseName: r.phaseName || r.phase_name,
           paymentMethod: r.paymentMethod || r.payment_method || 'cash',
-          paymentDate: r.paymentDate || r.payment_date || new Date().toISOString().split('T')[0],
+          paymentDate: r.paymentDate || r.payment_date || getTodayIST(),
           paymentTime: r.paymentTime || r.payment_time,
           paidByUserId: r.paidByUserId || r.paid_by_user_id,
           paidByName: r.paidByName || r.paid_by_name || 'कृष्ण मुरारी तिवारी',
@@ -456,7 +456,7 @@ export async function applyRemoteRealtimeEvent(
       phaseId: row.phase_id || row.phaseId || 'phase-construction',
       phaseName: row.phase_name || row.phaseName,
       paymentMethod: row.payment_method || row.paymentMethod || 'cash',
-      paymentDate: row.payment_date || row.paymentDate || new Date().toISOString().split('T')[0],
+      paymentDate: row.payment_date || row.paymentDate || getTodayIST(),
       paymentTime: row.payment_time || row.paymentTime,
       paidByUserId: row.paid_by_user_id || row.paidByUserId,
       paidByName: row.paid_by_name || row.paidByName || 'कृष्ण मुरारी तिवारी',

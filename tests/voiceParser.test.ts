@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseVoiceTranscript, extractAmount, extractPaymentMethod } from '../src/lib/voiceParser';
-import { formatINR } from '../src/lib/constants';
+import { parseVoiceTranscript, extractAmount, extractPaymentMethod, extractDate } from '../src/lib/voiceParser';
+import { formatINR, getTodayIST, getDateStringIST } from '../src/lib/constants';
 
 describe('Hindi Voice Parser & Natural Language Extractor', () => {
   it('should parse spoken Hindi expense: "आज शर्मा जी को सीमेंट के लिए पाँच हजार रुपये UPI से दिए"', () => {
@@ -105,6 +105,27 @@ describe('Indian Currency Formatting (Paise to INR)', () => {
     expect(formatINR(0)).toBe('₹0');
     expect(formatINR(null as any)).toBe('₹0');
     expect(formatINR(undefined as any)).toBe('₹0');
+  });
+});
+
+describe('Indian Standard Time (IST) Date Locking', () => {
+  it('should return the current IST date for today by default (not lagging UTC)', () => {
+    const today = getTodayIST();
+    expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    const parsed = parseVoiceTranscript('₹500 नाश्ते के लिए');
+    expect(parsed.paymentDate).toBe(today);
+    expect(extractDate('₹500 नाश्ते के लिए')).toBe(today);
+  });
+
+  it('should parse spoken "कल" to yesterday in IST', () => {
+    const yesterday = getDateStringIST(-1);
+    expect(extractDate('कल ₹2000 दिए थे')).toBe(yesterday);
+  });
+
+  it('should parse spoken "परसों" to day before yesterday in IST', () => {
+    const dayBefore = getDateStringIST(-2);
+    expect(extractDate('परसों ₹1500 दिए थे')).toBe(dayBefore);
   });
 });
 
