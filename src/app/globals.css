@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* Ensure smooth touch scrolling on mobile */
+html, body {
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+}
+
+/* Thumb zone safe padding for mobile devices */
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 16px);
+}
+
+/* Pulse animation for voice listening */
+@keyframes micRipple {
+  0% {
+    box-shadow: 0 0 0 0 rgba(8, 145, 178, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 35px rgba(8, 145, 178, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(8, 145, 178, 0);
+  }
+}
+
+.mic-active {
+  animation: micRipple 1.6s infinite;
+}

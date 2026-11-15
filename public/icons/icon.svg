@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="waterGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="50%" stop-color="#0891b2" />
+      <stop offset="100%" stop-color="#083344" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#waterGrad)"/>
+  <!-- Water wave ripples -->
+  <path d="M64 360 C 140 330, 180 390, 256 360 C 332 330, 380 390, 448 360" stroke="#ffffff" stroke-width="28" stroke-linecap="round" fill="none" opacity="0.8"/>
+  <path d="M64 420 C 140 390, 180 450, 256 420 C 332 390, 380 450, 448 420" stroke="#ffffff" stroke-width="20" stroke-linecap="round" fill="none" opacity="0.5"/>
+  <!-- Central Rupee and Water Drop Symbol -->
+  <circle cx="256" cy="200" r="110" fill="#ffffff" opacity="0.15"/>
+  <text x="256" y="240" font-family="Arial, sans-serif" font-size="140" font-weight="900" fill="#ffffff" text-anchor="middle">₹</text>
+</svg>

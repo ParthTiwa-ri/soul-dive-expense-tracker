@@ -1,0 +1,59 @@
+import Dexie, { Table } from 'dexie';
+import { Expense, Category, ProjectPhase, Vendor, UserProfile } from '@/types';
+import { DEFAULT_CATEGORIES, DEFAULT_PHASES, DEFAULT_PROFILES } from './constants';
+
+export class SoulDiveDatabase extends Dexie {
+  expenses!: Table<Expense, string>;
+  categories!: Table<Category, string>;
+  phases!: Table<ProjectPhase, string>;
+  vendors!: Table<Vendor, string>;
+  profiles!: Table<UserProfile, string>;
+
+  constructor() {
+    super('SoulDiveExpenseDB');
+    this.version(1).stores({
+      expenses: 'clientUuid, id, paymentDate, syncStatus, verificationStatus, submittedByUserId, categoryId, recordType',
+      categories: 'id, groupName, isActive, sortOrder',
+      phases: 'id, isActive, sortOrder',
+      vendors: 'id, name',
+      profiles: 'id, role, isActive',
+    });
+  }
+}
+
+export const db = new SoulDiveDatabase();
+
+/**
+ * Initializes default master data in IndexedDB on first launch so the app
+ * is 100% operational offline without any network call.
+ */
+export async function initializeLocalDatabase(): Promise<void> {
+  try {
+    const categoriesCount = await db.categories.count();
+    if (categoriesCount === 0) {
+      await db.categories.bulkAdd(DEFAULT_CATEGORIES);
+    }
+
+    const phasesCount = await db.phases.count();
+    if (phasesCount === 0) {
+      await db.phases.bulkAdd(DEFAULT_PHASES);
+    }
+
+    const profilesCount = await db.profiles.count();
+    if (profilesCount === 0) {
+      await db.profiles.bulkAdd(DEFAULT_PROFILES);
+    }
+
+    const vendorsCount = await db.vendors.count();
+    if (vendorsCount === 0) {
+      await db.vendors.bulkAdd([
+        { id: 'v1', name: 'Sharma Traders (शर्मा जी - सीमेंट/सरिया)', phone: '+91 98222 11111', notes: 'सीमेंट, सरिया सप्लायर', createdAt: new Date().toISOString() },
+        { id: 'v2', name: 'Patel Electricals (पटेल इलेक्ट्रिकल्स)', phone: '+91 98333 22222', notes: 'केबल व मोटर सामान', createdAt: new Date().toISOString() },
+        { id: 'v3', name: 'Yadav Bricks (यादव भट्ठा)', phone: '+91 98444 33333', notes: 'ईंट सप्लायर', createdAt: new Date().toISOString() },
+        { id: 'v4', name: 'Local Sanitary & Hardware', phone: '+91 98555 44444', notes: 'पाइप व फिटिंग', createdAt: new Date().toISOString() },
+      ]);
+    }
+  } catch (error) {
+    console.error('Failed to initialize local Dexie database:', error);
+  }
+}
