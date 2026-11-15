@@ -12,14 +12,14 @@ import QuickExpenseModal from '@/components/QuickExpenseModal';
 import RecentExpensesList from '@/components/RecentExpensesList';
 import LedgerView from '@/components/LedgerView';
 import DashboardView from '@/components/DashboardView';
-import ReconciliationView from '@/components/ReconciliationView';
+import ApprovalView from '@/components/ApprovalView';
 import { Mic, Plus, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 
 export default function HomePage() {
   const { language, isOnline, syncStats, triggerSync, isSyncing, currentUser } = useApp();
   const isHindi = language === 'hi';
 
-  const [activeTab, setActiveTab] = useState<'entry' | 'ledger' | 'dashboard'>('entry');
+  const [activeTab, setActiveTab] = useState<'entry' | 'ledger' | 'dashboard' | 'approvals'>('entry');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [manualInitialData, setManualInitialData] = useState<Partial<Expense> | null>(null);
@@ -37,6 +37,9 @@ export default function HomePage() {
   );
 
   const expenses = liveExpenses || [];
+  const pendingApprovalsCount = expenses.filter(
+    (e) => e.verificationStatus === 'pending' && e.status !== 'voided'
+  ).length;
 
   const handleExpenseSaved = (newExpense: Expense) => {
     // Attempt background sync if online
@@ -179,6 +182,12 @@ export default function HomePage() {
         )}
 
 
+        {/* TAB 4: APPROVALS & VERIFICATION */}
+        {activeTab === 'approvals' && (
+          <div className="animate-in fade-in duration-200">
+            <ApprovalView expenses={expenses} />
+          </div>
+        )}
       </main>
 
       {/* Floating Action Voice Modal */}
@@ -201,7 +210,11 @@ export default function HomePage() {
       />
 
       {/* Thumb-Zone Bottom Navigation */}
-      <BottomNav activeTab={activeTab} onSelectTab={setActiveTab} />
+      <BottomNav
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        pendingApprovalsCount={pendingApprovalsCount}
+      />
     </div>
   );
 }

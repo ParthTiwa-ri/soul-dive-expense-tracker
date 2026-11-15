@@ -5,7 +5,7 @@ import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
 import { formatINR, formatDateIST } from '@/lib/constants';
 import { db } from '@/lib/db';
-import { CheckCircle2, Clock, AlertTriangle, Receipt, ChevronRight, X, Image as ImageIcon, Camera, Trash2 } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, Receipt, ChevronRight, X, Image as ImageIcon, Camera, Trash2, Check } from 'lucide-react';
 import { compressImage } from '@/lib/syncEngine';
 
 interface RecentExpensesListProps {
@@ -283,20 +283,40 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
             </div>
 
             {/* Actions */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+              {selectedExpense.verificationStatus === 'pending' && selectedExpense.status !== 'voided' && (
+                <button
+                  onClick={async () => {
+                    await db.expenses.update(selectedExpense.clientUuid, {
+                      verificationStatus: 'verified',
+                      verifiedByUserId: currentUser.id,
+                      verifiedAt: new Date().toISOString(),
+                      syncStatus: 'pending',
+                    });
+                    setSelectedExpense((prev) =>
+                      prev ? { ...prev, verificationStatus: 'verified' } : null
+                    );
+                  }}
+                  className="py-2.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                >
+                  <Check className="w-4 h-4 stroke-[3px]" />
+                  <span>{isHindi ? 'मंजूर करें (Approve)' : 'Approve'}</span>
+                </button>
+              )}
+
               {selectedExpense.status !== 'voided' && (
                 <button
                   onClick={() => handleVoidExpense(selectedExpense.clientUuid)}
-                  className="py-2.5 px-4 rounded-xl border border-rose-300 bg-white hover:bg-rose-50 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  className="py-2.5 px-3 rounded-xl border border-rose-300 bg-white hover:bg-rose-50 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
                 >
                   <Trash2 className="w-4 h-4 text-rose-600" />
-                  <span>{isHindi ? 'खर्च रद्द करें (Void)' : 'Void Entry'}</span>
+                  <span>{isHindi ? 'रद्द करें (Void)' : 'Void'}</span>
                 </button>
               )}
 
               <button
                 onClick={() => setSelectedExpense(null)}
-                className="py-2.5 px-5 ml-auto rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors"
+                className="py-2.5 px-4 ml-auto rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors"
               >
                 {isHindi ? 'बंद करें' : 'Close'}
               </button>
