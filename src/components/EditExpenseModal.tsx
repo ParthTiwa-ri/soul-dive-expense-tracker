@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -117,6 +118,15 @@ export default function EditExpenseModal({
 
   // Perform Save with or without approval
   const handlePerformSave = async (shouldApprove: boolean) => {
+    if (isVerified) {
+      alert(
+        isHindi
+          ? 'मंजूरशुदा (Approved) खर्च में बदलाव या सुधार वर्जित है।'
+          : 'Approved expenses are permanently locked and cannot be edited.'
+      );
+      return;
+    }
+
     const parsedRupees = parseFloat(amountRupees.replace(/,/g, ''));
     if (isNaN(parsedRupees) || parsedRupees <= 0) {
       alert(isHindi ? 'कृपया सही रकम दर्ज करें।' : 'Please enter a valid amount.');
@@ -223,6 +233,17 @@ export default function EditExpenseModal({
 
         {/* Scrollable Form Body */}
         <div className="p-5 overflow-y-auto flex-1 space-y-4 text-slate-800">
+          {isVerified && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3.5 rounded-2xl flex items-center gap-2.5 text-xs font-bold">
+              <Lock className="w-5 h-5 text-amber-600 shrink-0" />
+              <span>
+                {isHindi
+                  ? 'यह खर्च पहले ही मंजूर (Approved) हो चुका है। लेजर ऑडिट नियमों के अनुसार इसमें सुधार या बदलाव वर्जित है।'
+                  : 'This expense has already been approved and is locked for audit integrity. Modifications are not allowed.'}
+              </span>
+            </div>
+          )}
+
           {/* 1. Amount in INR */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -237,7 +258,8 @@ export default function EditExpenseModal({
                 value={amountRupees}
                 onChange={(e) => setAmountRupees(e.target.value)}
                 placeholder="0"
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-cyan-600 focus:bg-white rounded-2xl text-2xl font-black text-slate-900 outline-none transition-all"
+                disabled={isVerified}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-cyan-600 focus:bg-white rounded-2xl text-2xl font-black text-slate-900 outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
               />
             </div>
           </div>
@@ -253,7 +275,8 @@ export default function EditExpenseModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={isHindi ? 'उदा: 10 बोरी सीमेंट, नाश्ता, डीजल...' : 'e.g. 10 bags cement...'}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-sm font-semibold outline-none transition-all"
+              disabled={isVerified}
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-sm font-semibold outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
             />
           </div>
 
@@ -265,7 +288,8 @@ export default function EditExpenseModal({
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-bold text-slate-800 outline-none transition-all"
+              disabled={isVerified}
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-bold text-slate-800 outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
             >
               <optgroup label={isHindi ? '--- निर्माण खर्च (Construction) ---' : '--- Construction ---'}>
                 {categories
@@ -308,7 +332,8 @@ export default function EditExpenseModal({
                 value={vendorName}
                 onChange={(e) => setVendorName(e.target.value)}
                 placeholder={isHindi ? 'उदा: शर्मा जी' : 'e.g. Sharma Traders'}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-semibold outline-none transition-all"
+                disabled={isVerified}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-semibold outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
               />
             </div>
 
@@ -320,7 +345,8 @@ export default function EditExpenseModal({
                 type="date"
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-semibold outline-none transition-all"
+                disabled={isVerified}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-semibold outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
               />
             </div>
           </div>
@@ -338,7 +364,8 @@ export default function EditExpenseModal({
                     key={method.value}
                     type="button"
                     onClick={() => setPaymentMethod(method.value)}
-                    className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                    disabled={isVerified}
+                    className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center disabled:opacity-75 ${
                       isSelected
                         ? 'bg-cyan-50 border-cyan-600 text-cyan-900 shadow-sm ring-1 ring-cyan-500'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -369,34 +396,42 @@ export default function EditExpenseModal({
                     <span className="text-xs font-bold text-slate-800 block">
                       {isHindi ? 'बिल फोटो संलग्न है' : 'Receipt attached'}
                     </span>
-                    <label className="text-[11px] font-semibold text-cyan-700 hover:underline cursor-pointer">
-                      {isCompressingReceipt
-                        ? isHindi
-                          ? 'प्रोसेसिंग...'
-                          : 'Processing...'
-                        : isHindi
-                        ? 'फोटो बदलें'
-                        : 'Change photo'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handlePhotoCapture}
-                        disabled={isCompressingReceipt}
-                        className="hidden"
-                      />
-                    </label>
+                    {!isVerified && (
+                      <label className="text-[11px] font-semibold text-cyan-700 hover:underline cursor-pointer">
+                        {isCompressingReceipt
+                          ? isHindi
+                            ? 'प्रोसेसिंग...'
+                            : 'Processing...'
+                          : isHindi
+                          ? 'फोटो बदलें'
+                          : 'Change photo'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handlePhotoCapture}
+                          disabled={isCompressingReceipt}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleRemoveReceipt}
-                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
-                  title={isHindi ? 'फोटो हटाएं' : 'Remove receipt'}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {!isVerified && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveReceipt}
+                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                    title={isHindi ? 'फोटो हटाएं' : 'Remove receipt'}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ) : isVerified ? (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-center text-xs text-slate-400 font-medium">
+                {isHindi ? 'कोई बिल प्रति संलग्न नहीं है' : 'No receipt photo attached'}
               </div>
             ) : (
               <label className="flex items-center justify-center gap-2 p-3 bg-slate-50 hover:bg-cyan-50/50 border-2 border-dashed border-slate-300 hover:border-cyan-400 rounded-2xl cursor-pointer transition-all">
@@ -432,61 +467,80 @@ export default function EditExpenseModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder={isHindi ? 'उदा: टोकन नंबर या टिप्पणी' : 'e.g. note or remarks'}
-              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-medium outline-none transition-all"
+              disabled={isVerified}
+              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-medium outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
             />
           </div>
         </div>
 
         {/* Action Buttons Sticky Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap sm:flex-nowrap items-center justify-end gap-2.5">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSaving}
-            className="py-2.5 px-4 rounded-xl border border-slate-300 bg-white text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors"
-          >
-            {isHindi ? 'रद्द करें' : 'Cancel'}
-          </button>
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5">
+          {isVerified ? (
+            <>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                <Lock className="w-4 h-4 text-slate-400" />
+                <span>{isHindi ? 'मंजूरशुदा (परिवर्तन वर्जित / लॉक्ड)' : 'Approved (Locked & Read-Only)'}</span>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="py-2.5 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors ml-auto"
+              >
+                {isHindi ? 'बंद करें' : 'Close'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSaving}
+                className="py-2.5 px-4 rounded-xl border border-slate-300 bg-white text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors"
+              >
+                {isHindi ? 'रद्द करें' : 'Cancel'}
+              </button>
 
-          {/* Option A: Save changes only (without approving) */}
-          <button
-            type="button"
-            onClick={() => handlePerformSave(false)}
-            disabled={isSaving}
-            className="flex-1 sm:flex-initial py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold shadow-sm active:scale-95 transition-all text-center"
-          >
-            {isSaving
-              ? isHindi
-                ? 'सेव हो रहा है...'
-                : 'Saving...'
-              : isHindi
-              ? isOwner
-                ? 'सिर्फ सुधार सेव करें'
-                : 'सुधार सेव करें'
-              : isOwner
-              ? 'Save Changes Only'
-              : 'Save Changes'}
-          </button>
-
-          {/* Option B: Save and Approve immediately (for Owner / Admin only) */}
-          {isOwner && !isVerified && (
-            <button
-              type="button"
-              onClick={() => handlePerformSave(true)}
-              disabled={isSaving}
-              className="w-full sm:w-auto py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-md shadow-emerald-600/25 active:scale-95 transition-all flex items-center justify-center gap-1.5"
-            >
-              <Check className="w-4 h-4 stroke-[3px]" />
-              <span>
+              {/* Option A: Save changes only (without approving) */}
+              <button
+                type="button"
+                onClick={() => handlePerformSave(false)}
+                disabled={isSaving}
+                className="flex-1 sm:flex-initial py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold shadow-sm active:scale-95 transition-all text-center"
+              >
                 {isSaving
                   ? isHindi
-                    ? 'मंजूर हो रहा है...'
-                    : 'Approving...'
+                    ? 'सेव हो रहा है...'
+                    : 'Saving...'
                   : isHindi
-                  ? 'सुधारें और मंजूर करें'
-                  : 'Save & Approve'}
-              </span>
-            </button>
+                  ? isOwner
+                    ? 'सिर्फ सुधार सेव करें'
+                    : 'सुधार सेव करें'
+                  : isOwner
+                  ? 'Save Changes Only'
+                  : 'Save Changes'}
+              </button>
+
+              {/* Option B: Save and Approve immediately (for Owner / Admin only) */}
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => handlePerformSave(true)}
+                  disabled={isSaving}
+                  className="w-full sm:w-auto py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-md shadow-emerald-600/25 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Check className="w-4 h-4 stroke-[3px]" />
+                  <span>
+                    {isSaving
+                      ? isHindi
+                        ? 'मंजूर हो रहा है...'
+                        : 'Approving...'
+                      : isHindi
+                      ? 'सुधारें और मंजूर करें'
+                      : 'Save & Approve'}
+                  </span>
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
