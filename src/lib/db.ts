@@ -18,6 +18,10 @@ export class SoulDiveDatabase extends Dexie {
       vendors: 'id, name',
       profiles: 'id, role, isActive',
     });
+
+    this.version(2).stores({
+      expenses: 'clientUuid, id, paymentDate, syncStatus, verificationStatus, submittedByUserId, categoryId, recordType, status',
+    });
   }
 }
 
@@ -42,8 +46,13 @@ export async function initializeLocalDatabase(): Promise<void> {
     // Keep profiles up-to-date with current defaults
     await db.profiles.bulkPut(DEFAULT_PROFILES);
 
-    // Purge any voided or deleted expenses from local IndexedDB so they never show anywhere
-    await db.expenses.where('status').equals('voided').delete();
+    // Purge any voided or deleted expenses from local IndexedDB safely using primary keys
+    const voidedKeys = await db.expenses
+      .filter((e) => e.status === 'voided')
+      .primaryKeys();
+    if (voidedKeys.length > 0) {
+      await db.expenses.bulkDelete(voidedKeys);
+    }
 
     // Sanitize any previously saved names in existing expenses
     await db.expenses.toCollection().modify((expense) => {
