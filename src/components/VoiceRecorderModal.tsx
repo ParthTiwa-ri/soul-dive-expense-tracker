@@ -51,7 +51,20 @@ export default function VoiceRecorderModal({
     };
   }, [isOpen]);
 
+  const stopRecording = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (e) {
+        // Ignore stop errors if already stopped
+      }
+      recognitionRef.current = null;
+    }
+    setIsRecording(false);
+  };
+
   const startRecording = () => {
+    stopRecording();
     setErrorMessage(null);
     setTranscript('');
     setParsedResult(null);
@@ -71,7 +84,7 @@ export default function VoiceRecorderModal({
     try {
       const recognition = new SpeechRecognition();
       recognition.lang = 'hi-IN'; // Optimized for Hindi
-      recognition.continuous = false;
+      recognition.continuous = true; // Stay active without cutting off on brief pauses
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
 
@@ -81,7 +94,7 @@ export default function VoiceRecorderModal({
 
       recognition.onresult = (event: any) => {
         let currentTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        for (let i = 0; i < event.results.length; i++) {
           currentTranscript += event.results[i][0].transcript;
         }
         setTranscript(currentTranscript);
@@ -92,19 +105,19 @@ export default function VoiceRecorderModal({
       };
 
       recognition.onerror = (event: any) => {
+        // "no-speech" and "aborted" are normal pauses or restarts - do not show a red error
+        if (event.error === 'aborted' || event.error === 'no-speech') {
+          return;
+        }
+
         console.warn('Speech recognition error:', event.error);
         setIsRecording(false);
+
         if (event.error === 'not-allowed') {
           setErrorMessage(
             isHindi
               ? 'माइक की अनुमति नहीं मिली। कृपया ब्राउज़र सेटिंग में माइक चालू करें।'
               : 'Microphone permission denied. Please allow microphone access.'
-          );
-        } else if (event.error === 'no-speech') {
-          setErrorMessage(
-            isHindi
-              ? 'कोई आवाज़ सुनाई नहीं दी। कृपया दोबारा बोलें।'
-              : 'No speech was detected. Please try speaking again.'
           );
         } else {
           setErrorMessage(
@@ -124,24 +137,17 @@ export default function VoiceRecorderModal({
     } catch (e: any) {
       console.error('Failed to start speech recognition:', e);
       setIsRecording(false);
-      setErrorMessage(
-        isHindi
-          ? 'माइक शुरू नहीं हो सका। कृपया मैन्युअल फॉर्म का उपयोग करें।'
-          : 'Could not start microphone. Please use manual form.'
-      );
     }
   };
 
-  const stopRecording = () => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        // Ignore stop errors if already stopped
-      }
-      recognitionRef.current = null;
-    }
-    setIsRecording(false);
+  const restartListening = () => {
+    stopRecording();
+    setErrorMessage(null);
+    setTranscript('');
+    setParsedResult(null);
+    setTimeout(() => {
+      startRecording();
+    }, 120);
   };
 
   const handleConfirmAndSave = async () => {
@@ -247,7 +253,7 @@ export default function VoiceRecorderModal({
                 if (isRecording) {
                   stopRecording();
                 } else {
-                  startRecording();
+                  restartListening();
                 }
               }}
               className={`w-28 h-28 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl ${
@@ -394,7 +400,7 @@ export default function VoiceRecorderModal({
 
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={startRecording}
+              onClick={restartListening}
               className="py-3 px-4 rounded-xl bg-white border border-slate-300 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 hover:bg-slate-100 transition-colors"
             >
               <RotateCcw className="w-4 h-4 text-slate-600" />
