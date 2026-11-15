@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import EditExpenseModal from '@/components/EditExpenseModal';
-import { deleteRemoteExpense } from '@/lib/syncEngine';
+import { deleteRemoteExpense, broadcastExpenseChange } from '@/lib/syncEngine';
 
 interface LedgerViewProps {
   expenses: Expense[];
@@ -41,7 +41,7 @@ function getDateStringIST(offsetDays = 0): string {
 }
 
 export default function LedgerView({ expenses }: LedgerViewProps) {
-  const { language, currentUser } = useApp();
+  const { language, currentUser, triggerSync } = useApp();
   const isHindi = language === 'hi';
   const isOwner = currentUser.role === 'owner' || currentUser.role === 'super_admin';
   const isSuperAdmin = currentUser.role === 'super_admin';
@@ -190,6 +190,12 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
         verifiedAt: new Date().toISOString(),
         syncStatus: 'pending',
       });
+
+      // Immediately broadcast approval and trigger sync across devices
+      broadcastExpenseChange();
+      if (typeof window !== 'undefined' && navigator.onLine) {
+        triggerSync();
+      }
 
       if (selectedExpense && selectedExpense.clientUuid === clientUuid) {
         setSelectedExpense((prev) => (prev ? { ...prev, verificationStatus: 'verified' } : null));

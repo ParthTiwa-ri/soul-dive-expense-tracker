@@ -361,6 +361,10 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                             verifiedAt: new Date().toISOString(),
                             syncStatus: 'pending',
                           });
+                          broadcastExpenseChange();
+                          if (typeof window !== 'undefined' && navigator.onLine) {
+                            triggerSync();
+                          }
                           setSelectedExpense((prev) =>
                             prev ? { ...prev, verificationStatus: 'verified' } : null
                           );
