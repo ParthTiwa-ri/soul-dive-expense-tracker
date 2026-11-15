@@ -557,31 +557,22 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                           </div>
                         </div>
 
-                        {/* Right: Symmetrical Amount & Status Icon End-Cap */}
+                        {/* Right: Amount & Status */}
                         <div className="text-right flex flex-col items-end flex-shrink-0">
                           <div className="flex items-center justify-end gap-1.5">
                             <span className="text-base font-black text-slate-900 tracking-tight">
                               {formatINR(item.amountPaise)}
                             </span>
 
-                            {/* Symmetrical Fixed-Width Status Icon End-Cap */}
-                            <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-                              {isApproved ? (
-                                <span
-                                  title={isHindi ? 'मंजूर (Approved ✓)' : 'Approved'}
-                                  className="w-4 h-4 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shadow-xs"
-                                >
-                                  <Check className="w-2.5 h-2.5 text-emerald-600 stroke-[3]" />
-                                </span>
-                              ) : (
-                                <span
-                                  title={isHindi ? 'मंजूरी बाकी (Pending Approval)' : 'Pending Approval'}
-                                  className="w-4 h-4 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shadow-xs"
-                                >
-                                  <Clock className="w-2.5 h-2.5 text-amber-600 stroke-[2.5]" />
-                                </span>
-                              )}
-                            </div>
+                            {/* Only for pending approval: tiny amber clock. For approved: NOTHING */}
+                            {!isApproved && (
+                              <span
+                                title={isHindi ? 'मंजूरी बाकी (Pending Approval)' : 'Pending Approval'}
+                                className="w-4 h-4 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shadow-xs flex-shrink-0"
+                              >
+                                <Clock className="w-2.5 h-2.5 text-amber-600 stroke-[2.5]" />
+                              </span>
+                            )}
                           </div>
 
                           {/* Cloud Sync Status: Only when offline or failed */}
