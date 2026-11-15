@@ -26,58 +26,92 @@ const MULTIPLIERS: Record<string, number> = {
   'करोड़': 10000000, 'crore': 10000000,
 };
 
-// Category keywords for intelligent inference
-const CATEGORY_MAP: { keywords: string[]; categoryId: string; categoryNameHi: string }[] = [
+// Known material / expense purpose patterns
+const PURPOSE_DICTIONARY: { keywords: string[]; displayLabel: string; categoryId: string; categoryNameHi: string }[] = [
   {
-    keywords: ['सीमेंट', 'सरिया', 'ईंट', 'गिट्टी', 'रेत', 'बालू', 'लोहा', 'बदरपुर', 'सीमेंट की बोरी', 'पत्थर'],
+    keywords: ['सीमेंट', 'सीमेन्ट', 'cement', 'सीमेंट की बोरी', 'सीमेंट का कट्टा'],
+    displayLabel: 'सीमेंट',
     categoryId: 'cat-bricks-cement',
     categoryNameHi: 'ईंट, सीमेंट, सरिया, गिट्टी',
   },
   {
-    keywords: ['मजदूर', 'मजदूरी', 'लेबर', 'ठेकेदार', 'हाजिरी', 'कारीगर', 'मिस्त्री', 'बेलदार'],
+    keywords: ['सरिया', 'लोहा', 'स्टील', 'steel', 'iron', 'तार'],
+    displayLabel: 'सरिया / लोहा',
+    categoryId: 'cat-bricks-cement',
+    categoryNameHi: 'ईंट, सीमेंट, सरिया, गिट्टी',
+  },
+  {
+    keywords: ['ईंट', 'ईट', 'bricks', 'भट्ठा'],
+    displayLabel: 'ईंट',
+    categoryId: 'cat-bricks-cement',
+    categoryNameHi: 'ईंट, सीमेंट, सरिया, गिट्टी',
+  },
+  {
+    keywords: ['रेत', 'बालू', 'गिट्टी', 'बदरपुर', 'क्रशर', 'sand', 'aggregate'],
+    displayLabel: 'रेत / गिट्टी / बालू',
+    categoryId: 'cat-bricks-cement',
+    categoryNameHi: 'ईंट, सीमेंट, सरिया, गिट्टी',
+  },
+  {
+    keywords: ['मजदूर', 'मजदूरी', 'लेबर', 'हाजिरी', 'कारीगर', 'मिस्त्री', 'बेलदार', 'labour'],
+    displayLabel: 'मजदूरी (Labour)',
     categoryId: 'cat-labour',
     categoryNameHi: 'मजदूरी और ठेकेदार',
   },
   {
-    keywords: ['प्लंबिंग', 'पाइप', 'नल', 'वाटर', 'टैंक', 'फिटिंग', 'वाल', 'सीवर', 'मोटर पाइप'],
+    keywords: ['प्लंबिंग', 'पाइप', 'नल', 'फिटिंग', 'वाल', 'सीवर', 'टैंक', 'plumbing', 'pipe'],
+    displayLabel: 'प्लंबिंग / पाइप',
     categoryId: 'cat-plumbing',
     categoryNameHi: 'प्लंबिंग और पाइपलाइन',
   },
   {
-    keywords: ['बिजली', 'तार', 'केबल', 'जनरेटर', 'लाइट', 'स्विच', 'पैनल', 'डीजल जनरेटर', 'एमसीबी'],
+    keywords: ['बिजली', 'केबल', 'जनरेटर', 'लाइट', 'स्विच', 'पैनल', 'एमसीबी', 'वायरिंग', 'electrical'],
+    displayLabel: 'बिजली फिटिंग / केबल',
     categoryId: 'cat-electrical',
     categoryNameHi: 'बिजली फिटिंग और जनरेटर',
   },
   {
-    keywords: ['डीजल', 'पेट्रोल', 'गाड़ी', 'भाड़ा', 'किराया', 'लोडिंग', 'ट्रैक्टर', 'ट्रांसपोर्ट'],
+    keywords: ['डीजल', 'पेट्रोल', 'गाड़ी', 'भाड़ा', 'किराया', 'लोडिंग', 'ट्रैक्टर', 'ट्रांसपोर्ट', 'fuel'],
+    displayLabel: 'डीजल / ट्रांसपोर्ट',
     categoryId: 'cat-transport',
     categoryNameHi: 'ट्रांसपोर्ट और भाड़ा',
   },
   {
     keywords: ['झूला', 'राइड', 'स्लाइड', 'पूल', 'वाटरपार्क'],
+    displayLabel: 'झूले / राइड्स',
     categoryId: 'cat-slides',
     categoryNameHi: 'झूले एवं राइड्स',
   },
   {
     keywords: ['फिल्टर', 'क्लोरीन', 'ट्रीटमेंट', 'केमिकल', 'दवा'],
+    displayLabel: 'केमिकल्स / वाटर ट्रीटमेंट',
     categoryId: 'cat-chemicals',
     categoryNameHi: 'केमिकल्स और वाटर ट्रीटमेंट',
   },
   {
     keywords: ['चाय', 'नाश्ता', 'खाना', 'लंच', 'पानी बोतल', 'बिस्कुट'],
+    displayLabel: 'चाय-नाश्ता / खाना',
     categoryId: 'cat-fnb',
     categoryNameHi: 'खान-पान सामान (F&B)',
   },
   {
     keywords: ['एडवांस', 'अग्रिम', 'पेशगी'],
+    displayLabel: 'अग्रिम राशि (एडवांस)',
     categoryId: 'cat-advances',
     categoryNameHi: 'अग्रिम राशि (एडवांस)',
   },
 ];
 
+// Words to strip out when determining the purpose
+const STOP_WORDS = new Set([
+  'आज', 'कल', 'परसों', 'को', 'से', 'के', 'लिए', 'का', 'की', 'के', 'रस', 'रुपये', 'रुपए', 'रु', 'पे',
+  'दिए', 'दिया', 'पेमेंट', 'किया', 'कर', 'दें', 'भेजा', 'भेजे', 'upi', 'यूपीआई', 'गूगल', 'फोनपे',
+  'पेटीएम', 'कैश', 'नकद', 'बैंक', 'खाते', 'ट्रांसफर', 'चेक', 'कार्ड', 'है', 'था', 'थी', 'थे',
+  'हजार', 'लाख', 'सौ', 'सौ', 'k', 'rs', 'rupees'
+]);
+
 /**
  * Extracts a numeric amount from spoken Hindi/English transcript.
- * Supports digits ("5000"), words ("पाँच हजार"), fractions ("डेढ़ हजार", "ढाई सौ"), etc.
  */
 export function extractAmount(transcript: string): number | null {
   const clean = transcript.toLowerCase();
@@ -187,20 +221,17 @@ export function extractDate(transcript: string): string {
   const today = new Date();
 
   if (text.includes('कल दिए थे') || text.includes('कल का') || text.includes('कल ')) {
-    // Yesterday
     const yest = new Date(today);
     yest.setDate(yest.getDate() - 1);
     return yest.toISOString().split('T')[0];
   }
 
   if (text.includes('परसों')) {
-    // Day before yesterday
     const dby = new Date(today);
     dby.setDate(dby.getDate() - 2);
     return dby.toISOString().split('T')[0];
   }
 
-  // Default is today in YYYY-MM-DD
   return today.toISOString().split('T')[0];
 }
 
@@ -208,8 +239,7 @@ export function extractDate(transcript: string): string {
  * Extracts vendor name if spoken (e.g. "शर्मा जी को", "पटेल को")
  */
 export function extractVendor(transcript: string): string | undefined {
-  // Pattern: [Vendor name] को ... दिए / payment
-  const koMatch = transcript.match(/([^\s]+(?:\s+जी|\s+ट्रेडर्स|\s+भट्ठा)?)\s+को/i);
+  const koMatch = transcript.match(/([^\s]+(?:\s+जी|\s+ट्रेडर्स|\s+भट्ठा|\s+ब्रदर्स)?)\s+को/i);
   if (koMatch && koMatch[1]) {
     const candidate = koMatch[1].trim();
     if (!['आज', 'कल', 'पैसे', 'रुपये', 'सब'].includes(candidate)) {
@@ -225,6 +255,71 @@ export function extractVendor(transcript: string): string | undefined {
 }
 
 /**
+ * Intelligently extracts the purpose/description while strictly excluding
+ * amounts, payment methods, vendors, and filler words.
+ */
+export function extractDescription(transcript: string, matchedVendor?: string): { description: string; categoryId: string; categoryNameHi: string } {
+  const lower = transcript.toLowerCase();
+
+  // 1. Priority A: Check if a known material or service keyword is present
+  for (const item of PURPOSE_DICTIONARY) {
+    for (const kw of item.keywords) {
+      if (lower.includes(kw)) {
+        return {
+          description: item.displayLabel,
+          categoryId: item.categoryId,
+          categoryNameHi: item.categoryNameHi,
+        };
+      }
+    }
+  }
+
+  // 2. Priority B: Check for "[something] के लिए" or "[something] का बिल",
+  // BUT sanitize to remove any amount digits, payment terms, or stop words
+  const keLiyeMatch = lower.match(/(?:को\s+)?([^\s]+(?:\s+[^\s]+)?)\s+के\s+लिए/i);
+  if (keLiyeMatch && keLiyeMatch[1]) {
+    const candidateTokens = keLiyeMatch[1]
+      .split(/\s+/)
+      .filter((tok) => !STOP_WORDS.has(tok) && !/^\d+$/.test(tok));
+
+    if (candidateTokens.length > 0) {
+      const candidateStr = candidateTokens.join(' ');
+      return {
+        description: candidateStr.charAt(0).toUpperCase() + candidateStr.slice(1),
+        categoryId: 'cat-other-construction',
+        categoryNameHi: 'अन्य निर्माण खर्च',
+      };
+    }
+  }
+
+  // 3. Priority C: Remove vendor, amounts, payment terms, and stop words, then pick remaining words
+  const words = transcript.split(/\s+/);
+  const filteredWords = words.filter((w) => {
+    const cleanWord = w.toLowerCase().replace(/[.,!]/g, '');
+    if (STOP_WORDS.has(cleanWord)) return false;
+    if (/^\d+$/.test(cleanWord)) return false;
+    if (matchedVendor && matchedVendor.toLowerCase().includes(cleanWord)) return false;
+    return true;
+  });
+
+  if (filteredWords.length > 0) {
+    const candidate = filteredWords.slice(0, 3).join(' ');
+    return {
+      description: candidate,
+      categoryId: 'cat-other-construction',
+      categoryNameHi: 'अन्य निर्माण खर्च',
+    };
+  }
+
+  // Fallback
+  return {
+    description: matchedVendor ? `${matchedVendor} - खर्च` : 'सामान्य खर्च',
+    categoryId: 'cat-other-construction',
+    categoryNameHi: 'अन्य निर्माण खर्च',
+  };
+}
+
+/**
  * Main Voice Parser: converts Hindi voice transcript into structured expense fields
  */
 export function parseVoiceTranscript(transcript: string): ParsedVoiceResult {
@@ -234,48 +329,19 @@ export function parseVoiceTranscript(transcript: string): ParsedVoiceResult {
   const paymentDate = extractDate(trimmed);
   const vendorName = extractVendor(trimmed);
 
-  // Match category
-  let categoryId = 'cat-other-construction';
-  let categoryName = 'अन्य निर्माण खर्च';
-  for (const cat of CATEGORY_MAP) {
-    if (cat.keywords.some((k) => trimmed.toLowerCase().includes(k))) {
-      categoryId = cat.categoryId;
-      categoryName = cat.categoryNameHi;
-      break;
-    }
-  }
+  // Extract clean purpose & category
+  const { description, categoryId, categoryNameHi } = extractDescription(trimmed, vendorName);
 
-  // Extract purpose: what was it for?
-  // Look for patterns like "... के लिए", "... का बिल", or fall back to matched category keywords
-  let description = '';
-  const keLiyeMatch = trimmed.match(/([^\s]+(?:\s+[^\s]+)?)\s+के\s+लिए/i);
-  if (keLiyeMatch && keLiyeMatch[1]) {
-    description = keLiyeMatch[1].trim();
-  } else {
-    // Check if any specific keyword was mentioned
-    for (const cat of CATEGORY_MAP) {
-      const foundKeyword = cat.keywords.find((k) => trimmed.includes(k));
-      if (foundKeyword) {
-        description = foundKeyword;
-        break;
-      }
-    }
-  }
-
-  if (!description) {
-    description = trimmed; // Use full transcript if no specific subphrase isolated
-  }
-
-  const confidence = amountRupees ? 0.9 : 0.4;
+  const confidence = amountRupees ? 0.95 : 0.4;
 
   return {
     rawTranscript: trimmed,
     amountRupees: amountRupees || undefined,
     amountPaise: amountRupees ? Math.round(amountRupees * 100) : undefined,
-    description: description.charAt(0).toUpperCase() + description.slice(1),
+    description,
     vendorName,
     categoryId,
-    categoryName,
+    categoryName: categoryNameHi,
     paymentMethod,
     paymentDate,
     confidence,

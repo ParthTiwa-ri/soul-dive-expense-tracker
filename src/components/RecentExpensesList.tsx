@@ -307,3 +307,4 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
     </div>
   );
 }
+

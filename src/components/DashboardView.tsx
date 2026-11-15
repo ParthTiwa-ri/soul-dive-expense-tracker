@@ -196,3 +196,4 @@ export default function DashboardView({ expenses }: DashboardViewProps) {
     </div>
   );
 }
+

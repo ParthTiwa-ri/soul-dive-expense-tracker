@@ -111,3 +111,4 @@ Database migration files are located in `supabase/migrations/`:
 - UUIDv4 idempotency keys prevent duplicate transaction creation on network reconnect.
 - Receipts stored in private buckets with verified user access.
 - Tamper-evident revision audit log for post-verification amendments.
+

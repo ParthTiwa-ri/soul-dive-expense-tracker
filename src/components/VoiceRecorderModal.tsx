@@ -299,11 +299,30 @@ export default function VoiceRecorderModal({
 
           {/* Live Spoken Transcript */}
           {transcript && (
-            <div className="w-full mb-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <div className="w-full mb-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                 {isHindi ? 'सुनाई दिया:' : 'Transcript:'}
               </span>
               <p className="text-sm font-medium text-slate-800 italic">"{transcript}"</p>
+            </div>
+          )}
+
+          {/* Helpful Guidance when transcript is heard but amount is missing */}
+          {transcript && (!parsedResult || !parsedResult.amountPaise) && !isRecording && (
+            <div className="w-full mb-4 p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-amber-900 text-xs">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold">
+                  {isHindi
+                    ? 'रकम (Amount) सुनाई नहीं दी'
+                    : 'Amount was not detected'}
+                </p>
+                <p className="text-amber-800 text-[11px] mt-0.5">
+                  {isHindi
+                    ? 'कृपया दोबारा बोलें (उदा: "5000 रुपये सीमेंट") या नीचे "बदलें / मैन्युअल" दबाकर रकम दर्ज करें।'
+                    : 'Please speak again with an amount (e.g. "5000 rupees cement") or tap "Edit / Manual" below to type it.'}
+                </p>
+              </div>
             </div>
           )}
 
@@ -395,3 +414,4 @@ export default function VoiceRecorderModal({
     </div>
   );
 }
+

@@ -237,3 +237,4 @@ CREATE POLICY "Update unverified own expenses" ON expenses FOR UPDATE USING (
     (submitted_by_user_id = auth.uid() AND verification_status = 'pending')
     OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('owner', 'manager'))
 );
+

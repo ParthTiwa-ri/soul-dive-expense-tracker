@@ -74,3 +74,4 @@ describe('Server Idempotent Sync API (/api/sync/expenses)', () => {
     expect(res.status).toBe(400);
   });
 });
+

@@ -79,3 +79,4 @@ INSERT INTO vendors (name, phone, notes) VALUES
 ('Yadav Bricks Kiln (ईंट भट्ठा)', '+91 98444 33333', 'लाल ईंट'),
 ('Local Hardware & Sanitary', '+91 98555 44444', 'प्लंबिंग व फिटिंग पाइप')
 ON CONFLICT DO NOTHING;
+

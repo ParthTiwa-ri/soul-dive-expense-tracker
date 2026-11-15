@@ -260,3 +260,4 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
     </div>
   );
 }
+

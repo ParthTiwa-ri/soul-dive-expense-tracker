@@ -26,6 +26,17 @@ describe('Hindi Voice Parser & Natural Language Extractor', () => {
     expect(extractAmount('लेबर पेमेंट 8000')).toBe(8000);
   });
 
+  it('should cleanly extract purpose "सीमेंट" even with colloquial filler words: "आज शर्मा जी को सीमेंट के रस 5000 यूपीआई के लिए"', () => {
+    const transcript = 'आज शर्मा जी को सीमेंट के रस 5000 यूपीआई के लिए';
+    const result = parseVoiceTranscript(transcript);
+
+    expect(result.amountRupees).toBe(5000);
+    expect(result.description).toBe('सीमेंट');
+    expect(result.vendorName).toContain('शर्मा');
+    expect(result.paymentMethod).toBe('upi');
+    expect(result.categoryId).toBe('cat-bricks-cement');
+  });
+
   it('should detect cash, upi, and bank transfer methods accurately', () => {
     expect(extractPaymentMethod('कैश में पेमेंट किया')).toBe('cash');
     expect(extractPaymentMethod('गूगल पे से भेजा')).toBe('upi');
@@ -49,3 +60,4 @@ describe('Indian Currency Formatting (Paise to INR)', () => {
     expect(formatINR(undefined as any)).toBe('₹0');
   });
 });
+

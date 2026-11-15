@@ -57,3 +57,4 @@ export async function initializeLocalDatabase(): Promise<void> {
     console.error('Failed to initialize local Dexie database:', error);
   }
 }
+
