@@ -17,7 +17,7 @@ export default function BottomNav({
 }: BottomNavProps) {
   const { language, currentUser } = useApp();
   const isHindi = language === 'hi';
-  const isOwner = currentUser.role === 'owner';
+  const isOwner = currentUser.role === 'owner' || currentUser.role === 'super_admin';
 
   const allTabs = [
     {

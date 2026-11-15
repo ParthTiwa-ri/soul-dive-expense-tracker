@@ -17,7 +17,8 @@ interface RecentExpensesListProps {
 export default function RecentExpensesList({ expenses, onRefresh }: RecentExpensesListProps) {
   const { language, currentUser } = useApp();
   const isHindi = language === 'hi';
-  const isOwner = currentUser.role === 'owner';
+  const isOwner = currentUser.role === 'owner' || currentUser.role === 'super_admin';
+  const isSuperAdmin = currentUser.role === 'super_admin';
 
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -56,15 +57,20 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
     }
   };
 
-  // Void unverified transaction
+  // Void unverified transaction (or override by Super Admin)
   const handleVoidExpense = async (clientUuid: string) => {
-    if (selectedExpense?.verificationStatus === 'verified') {
+    if (selectedExpense?.verificationStatus === 'verified' && !isSuperAdmin) {
       alert(isHindi ? 'मंजूरशुदा (Approved) खर्च को रद्द या डिलीट नहीं किया जा सकता।' : 'Approved expenses cannot be voided.');
       return;
     }
 
+    const isApproved = selectedExpense?.verificationStatus === 'verified';
     const confirmText = isHindi
-      ? 'क्या आप इस खर्च को रद्द (Void) करना चाहते हैं?'
+      ? isApproved
+        ? '⚡ सुपर एडमिन: क्या आप वाकई इस मंजूरशुदा (Approved) खर्च को रद्द (Void) करना चाहते हैं?'
+        : 'क्या आप इस खर्च को रद्द (Void) करना चाहते हैं?'
+      : isApproved
+      ? '⚡ Super Admin: Are you sure you want to VOID this APPROVED expense?'
       : 'Do you want to void this expense entry?';
     if (!confirm(confirmText)) return;
 
@@ -300,7 +306,7 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
             {/* Actions */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                {selectedExpense.verificationStatus === 'verified' ? (
+                {selectedExpense.verificationStatus === 'verified' && !isSuperAdmin ? (
                   <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
                     <Lock className="w-3.5 h-3.5 text-emerald-600" />
                     <span>{isHindi ? 'मंजूरशुदा (परिवर्तन वर्जित)' : 'Approved (Locked)'}</span>
@@ -314,10 +320,22 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                         setSelectedExpense(null);
                         setEditingExpense(toEdit);
                       }}
-                      className="py-2.5 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 ${
+                        isSuperAdmin && selectedExpense.verificationStatus === 'verified'
+                          ? 'bg-amber-400 hover:bg-amber-300 border-amber-500 text-slate-950 font-black ring-1 ring-amber-400'
+                          : 'border-slate-300 bg-white hover:bg-slate-100 text-slate-700'
+                      }`}
                     >
-                      <Edit3 className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{isHindi ? 'सुधारें' : 'Edit'}</span>
+                      <Edit3 className="w-3.5 h-3.5 text-slate-700" />
+                      <span>
+                        {isSuperAdmin && selectedExpense.verificationStatus === 'verified'
+                          ? isHindi
+                            ? '🔓 सुपर सुधार (Override)'
+                            : '🔓 Super Edit'
+                          : isHindi
+                          ? 'सुधारें'
+                          : 'Edit'}
+                      </span>
                     </button>
 
                     {isOwner && selectedExpense.verificationStatus === 'pending' && selectedExpense.status !== 'voided' && (
@@ -326,6 +344,7 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                           await db.expenses.update(selectedExpense.clientUuid, {
                             verificationStatus: 'verified',
                             verifiedByUserId: currentUser.id,
+                            verifiedByName: currentUser.fullName,
                             verifiedAt: new Date().toISOString(),
                             syncStatus: 'pending',
                           });
@@ -344,13 +363,25 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                 )}
               </div>
 
-              {selectedExpense.verificationStatus !== 'verified' && isOwner && selectedExpense.status !== 'voided' && (
+              {(selectedExpense.verificationStatus !== 'verified' || isSuperAdmin) && isOwner && selectedExpense.status !== 'voided' && (
                 <button
                   onClick={() => handleVoidExpense(selectedExpense.clientUuid)}
-                  className="py-2.5 px-3 rounded-xl border border-rose-300 bg-white hover:bg-rose-50 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                    isSuperAdmin && selectedExpense.verificationStatus === 'verified'
+                      ? 'border-rose-400 bg-rose-50 text-rose-800 hover:bg-rose-100'
+                      : 'border-rose-300 bg-white hover:bg-rose-50 text-rose-700'
+                  }`}
                 >
                   <Trash2 className="w-4 h-4 text-rose-600" />
-                  <span>{isHindi ? 'रद्द करें (Void)' : 'Void'}</span>
+                  <span>
+                    {isSuperAdmin && selectedExpense.verificationStatus === 'verified'
+                      ? isHindi
+                        ? 'सुपर रद्द (Void)'
+                        : 'Super Void'
+                      : isHindi
+                      ? 'रद्द करें (Void)'
+                      : 'Void'}
+                  </span>
                 </button>
               )}
 

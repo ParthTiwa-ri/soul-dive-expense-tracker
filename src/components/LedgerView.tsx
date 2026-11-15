@@ -41,7 +41,8 @@ function getDateStringIST(offsetDays = 0): string {
 export default function LedgerView({ expenses }: LedgerViewProps) {
   const { language, currentUser } = useApp();
   const isHindi = language === 'hi';
-  const isOwner = currentUser.role === 'owner';
+  const isOwner = currentUser.role === 'owner' || currentUser.role === 'super_admin';
+  const isSuperAdmin = currentUser.role === 'super_admin';
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -766,7 +767,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
 
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                {selectedExpense.verificationStatus === 'verified' ? (
+                {selectedExpense.verificationStatus === 'verified' && !isSuperAdmin ? (
                   <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
                     <Lock className="w-3.5 h-3.5 text-emerald-600" />
                     <span>{isHindi ? 'मंजूरशुदा (परिवर्तन वर्जित)' : 'Approved (Locked)'}</span>
@@ -780,10 +781,22 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                         setSelectedExpense(null);
                         setEditingExpense(toEdit);
                       }}
-                      className="py-2.5 px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                      className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all ${
+                        isSuperAdmin && selectedExpense.verificationStatus === 'verified'
+                          ? 'bg-amber-400 hover:bg-amber-300 border-amber-500 text-slate-950 font-black'
+                          : 'border-slate-300 bg-white hover:bg-slate-100 text-slate-700'
+                      }`}
                     >
-                      <Edit3 className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{isHindi ? 'सुधारें' : 'Edit'}</span>
+                      <Edit3 className="w-3.5 h-3.5 text-slate-700" />
+                      <span>
+                        {isSuperAdmin && selectedExpense.verificationStatus === 'verified'
+                          ? isHindi
+                            ? '🔓 सुपर सुधार (Override)'
+                            : '🔓 Super Edit'
+                          : isHindi
+                          ? 'सुधारें'
+                          : 'Edit'}
+                      </span>
                     </button>
 
                     {isOwner && selectedExpense.verificationStatus === 'pending' && selectedExpense.status !== 'voided' && (

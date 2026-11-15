@@ -1,4 +1,4 @@
-export type UserRole = 'owner' | 'manager' | 'contributor' | 'viewer';
+export type UserRole = 'owner' | 'manager' | 'contributor' | 'viewer' | 'super_admin';
 
 export type PaymentMethod = 'cash' | 'upi' | 'bank_transfer' | 'card' | 'cheque' | 'other';
 

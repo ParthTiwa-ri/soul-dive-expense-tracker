@@ -16,6 +16,7 @@ interface ApprovalViewProps {
 export default function ApprovalView({ expenses }: ApprovalViewProps) {
   const { language, currentUser } = useApp();
   const isHindi = language === 'hi';
+  const isSuperAdmin = currentUser.role === 'super_admin';
 
   const [filterMode, setFilterMode] = useState<'pending' | 'verified'>('pending');
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null);
@@ -199,7 +200,7 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {isVerified ? (
+                    {isVerified && !isSuperAdmin ? (
                       <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
                         <Lock className="w-3.5 h-3.5 text-slate-400" />
                         <span>{isHindi ? 'लॉक्ड (परिवर्तन वर्जित)' : 'Locked'}</span>
@@ -210,20 +211,34 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
                         <button
                           type="button"
                           onClick={() => setEditingExpense(expense)}
-                          className="py-1.5 px-3 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all"
+                          className={`py-1.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all ${
+                            isSuperAdmin && isVerified
+                              ? 'bg-amber-400 hover:bg-amber-300 border-amber-500 text-slate-950 font-black'
+                              : 'border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                          }`}
                         >
-                          <Edit3 className="w-3.5 h-3.5 text-slate-500" />
-                          <span>{isHindi ? 'सुधारें' : 'Correct'}</span>
+                          <Edit3 className="w-3.5 h-3.5 text-slate-700" />
+                          <span>
+                            {isSuperAdmin && isVerified
+                              ? isHindi
+                                ? '🔓 सुपर सुधार (Override)'
+                                : '🔓 Super Edit'
+                              : isHindi
+                              ? 'सुधारें'
+                              : 'Correct'}
+                          </span>
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleApprove(expense.clientUuid)}
-                          className="py-1.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-                        >
-                          <Check className="w-4 h-4 stroke-[3px]" />
-                          <span>{isHindi ? 'मंजूर करें' : 'Approve'}</span>
-                        </button>
+                        {!isVerified && (
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(expense.clientUuid)}
+                            className="py-1.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                          >
+                            <Check className="w-4 h-4 stroke-[3px]" />
+                            <span>{isHindi ? 'मंजूर करें' : 'Approve'}</span>
+                          </button>
+                        )}
                       </>
                     )}
                   </div>

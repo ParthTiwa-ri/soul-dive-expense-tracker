@@ -19,6 +19,17 @@ export const DEFAULT_PROFILES: UserProfile[] = [
   },
 ];
 
+export const SUPER_ADMIN_PROFILE: UserProfile = {
+  id: '00000000-0000-0000-0000-000000000000',
+  fullName: 'Parth Tiwari',
+  phone: '+91 99999 99999',
+  role: 'super_admin',
+  isActive: true,
+  preferredLanguage: 'en',
+};
+
+export const SUPER_ADMIN_SECRET_PIN = '573776';
+
 export const DEFAULT_PHASES: ProjectPhase[] = [
   {
     id: 'phase-construction',

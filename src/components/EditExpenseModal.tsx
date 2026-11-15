@@ -34,7 +34,8 @@ export default function EditExpenseModal({
 }: EditExpenseModalProps) {
   const { currentUser, language } = useApp();
   const isHindi = language === 'hi';
-  const isOwner = currentUser.role === 'owner';
+  const isOwner = currentUser.role === 'owner' || currentUser.role === 'super_admin';
+  const isSuperAdmin = currentUser.role === 'super_admin';
 
   // Form states
   const [amountRupees, setAmountRupees] = useState<string>('');
@@ -90,6 +91,7 @@ export default function EditExpenseModal({
   if (!isOpen || !expense) return null;
 
   const isVerified = expense.verificationStatus === 'verified';
+  const isLocked = isVerified && !isSuperAdmin;
 
   // Handle new receipt upload
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,7 +120,7 @@ export default function EditExpenseModal({
 
   // Perform Save with or without approval
   const handlePerformSave = async (shouldApprove: boolean) => {
-    if (isVerified) {
+    if (isLocked) {
       alert(
         isHindi
           ? 'मंजूरशुदा (Approved) खर्च में बदलाव या सुधार वर्जित है।'
@@ -233,7 +235,18 @@ export default function EditExpenseModal({
 
         {/* Scrollable Form Body */}
         <div className="p-5 overflow-y-auto flex-1 space-y-4 text-slate-800">
-          {isVerified && (
+          {isVerified && isSuperAdmin && (
+            <div className="bg-amber-50 border border-amber-300 text-amber-950 p-3.5 rounded-2xl flex items-center gap-2.5 text-xs font-bold shadow-sm">
+              <Sparkles className="w-5 h-5 text-amber-600 shrink-0" />
+              <span>
+                {isHindi
+                  ? '⚡ सुपर एडमिन ओवरराइड सक्रिय: आप इस मंजूरशुदा खर्च को भी एडिट या अपडेट कर सकते हैं।'
+                  : '⚡ Super Admin Override Active: You can edit and update this approved expense.'}
+              </span>
+            </div>
+          )}
+
+          {isLocked && (
             <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3.5 rounded-2xl flex items-center gap-2.5 text-xs font-bold">
               <Lock className="w-5 h-5 text-amber-600 shrink-0" />
               <span>
@@ -258,7 +271,7 @@ export default function EditExpenseModal({
                 value={amountRupees}
                 onChange={(e) => setAmountRupees(e.target.value)}
                 placeholder="0"
-                disabled={isVerified}
+                disabled={isLocked}
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-2 border-slate-200 focus:border-cyan-600 focus:bg-white rounded-2xl text-2xl font-black text-slate-900 outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
               />
             </div>
@@ -275,7 +288,7 @@ export default function EditExpenseModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={isHindi ? 'उदा: 10 बोरी सीमेंट, नाश्ता, डीजल...' : 'e.g. 10 bags cement...'}
-              disabled={isVerified}
+              disabled={isLocked}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-sm font-semibold outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
             />
           </div>
@@ -288,7 +301,7 @@ export default function EditExpenseModal({
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              disabled={isVerified}
+              disabled={isLocked}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-bold text-slate-800 outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
             >
               <optgroup label={isHindi ? '--- निर्माण खर्च (Construction) ---' : '--- Construction ---'}>
@@ -332,7 +345,7 @@ export default function EditExpenseModal({
                 value={vendorName}
                 onChange={(e) => setVendorName(e.target.value)}
                 placeholder={isHindi ? 'उदा: शर्मा जी' : 'e.g. Sharma Traders'}
-                disabled={isVerified}
+                disabled={isLocked}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-semibold outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
               />
             </div>
@@ -345,7 +358,7 @@ export default function EditExpenseModal({
                 type="date"
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
-                disabled={isVerified}
+                disabled={isLocked}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-semibold outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
               />
             </div>
@@ -364,7 +377,7 @@ export default function EditExpenseModal({
                     key={method.value}
                     type="button"
                     onClick={() => setPaymentMethod(method.value)}
-                    disabled={isVerified}
+                    disabled={isLocked}
                     className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center disabled:opacity-75 ${
                       isSelected
                         ? 'bg-cyan-50 border-cyan-600 text-cyan-900 shadow-sm ring-1 ring-cyan-500'
@@ -396,7 +409,7 @@ export default function EditExpenseModal({
                     <span className="text-xs font-bold text-slate-800 block">
                       {isHindi ? 'बिल फोटो संलग्न है' : 'Receipt attached'}
                     </span>
-                    {!isVerified && (
+                    {!isLocked && (
                       <label className="text-[11px] font-semibold text-cyan-700 hover:underline cursor-pointer">
                         {isCompressingReceipt
                           ? isHindi
@@ -418,7 +431,7 @@ export default function EditExpenseModal({
                   </div>
                 </div>
 
-                {!isVerified && (
+                {!isLocked && (
                   <button
                     type="button"
                     onClick={handleRemoveReceipt}
@@ -429,7 +442,7 @@ export default function EditExpenseModal({
                   </button>
                 )}
               </div>
-            ) : isVerified ? (
+            ) : isLocked ? (
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-center text-xs text-slate-400 font-medium">
                 {isHindi ? 'कोई बिल प्रति संलग्न नहीं है' : 'No receipt photo attached'}
               </div>
@@ -467,7 +480,7 @@ export default function EditExpenseModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder={isHindi ? 'उदा: टोकन नंबर या टिप्पणी' : 'e.g. note or remarks'}
-              disabled={isVerified}
+              disabled={isLocked}
               className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 focus:border-cyan-600 focus:bg-white rounded-xl text-xs font-medium outline-none transition-all disabled:opacity-75 disabled:bg-slate-100"
             />
           </div>
@@ -475,7 +488,7 @@ export default function EditExpenseModal({
 
         {/* Action Buttons Sticky Footer */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5">
-          {isVerified ? (
+          {isLocked ? (
             <>
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
                 <Lock className="w-4 h-4 text-slate-400" />
@@ -505,12 +518,20 @@ export default function EditExpenseModal({
                 type="button"
                 onClick={() => handlePerformSave(false)}
                 disabled={isSaving}
-                className="flex-1 sm:flex-initial py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold shadow-sm active:scale-95 transition-all text-center"
+                className={`flex-1 sm:flex-initial py-2.5 px-4 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all text-center ${
+                  isSuperAdmin && isVerified
+                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black ring-1 ring-amber-500'
+                    : 'bg-slate-800 hover:bg-slate-700 text-white'
+                }`}
               >
                 {isSaving
                   ? isHindi
                     ? 'सेव हो रहा है...'
                     : 'Saving...'
+                  : isSuperAdmin && isVerified
+                  ? isHindi
+                    ? '⚡ सुपर सुधार सेव करें'
+                    : '⚡ Save Super Edit'
                   : isHindi
                   ? isOwner
                     ? 'सिर्फ सुधार सेव करें'
@@ -520,8 +541,8 @@ export default function EditExpenseModal({
                   : 'Save Changes'}
               </button>
 
-              {/* Option B: Save and Approve immediately (for Owner / Admin only) */}
-              {isOwner && (
+              {/* Option B: Save and Approve immediately (for Owner / Admin only, on unverified expenses) */}
+              {isOwner && !isVerified && (
                 <button
                   type="button"
                   onClick={() => handlePerformSave(true)}

@@ -24,9 +24,10 @@ export default function HomePage() {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [manualInitialData, setManualInitialData] = useState<Partial<Expense> | null>(null);
 
-  // If current active tab is approvals but user is contributor (Father), safely fallback to entry tab
+  // If current active tab is approvals but user is not owner/super_admin, safely fallback to entry tab
   React.useEffect(() => {
-    if (currentUser.role !== 'owner' && activeTab === 'approvals') {
+    const isOwnerOrSuper = currentUser.role === 'owner' || currentUser.role === 'super_admin';
+    if (!isOwnerOrSuper && activeTab === 'approvals') {
       setActiveTab('entry');
     }
   }, [currentUser.role, activeTab]);
