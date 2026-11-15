@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Expense, Category } from '@/types';
-import { formatINR, formatDateIST, DEFAULT_CATEGORIES, getDateStringIST, getTodayIST } from '@/lib/constants';
+import { formatINR, formatDateIST, formatDateTimeIST, DEFAULT_CATEGORIES, getDateStringIST, getTodayIST } from '@/lib/constants';
 import { db } from '@/lib/db';
 import {
   Search,
@@ -852,9 +852,13 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                   </div>
                 )}
                 <div className="flex justify-between py-1 border-b border-slate-200">
-                  <span className="text-slate-500">{isHindi ? 'तारीख (Date):' : 'Date:'}</span>
+                  <span className="text-slate-500">{isHindi ? 'तारीख व समय:' : 'Date & Time:'}</span>
                   <span className="font-bold text-slate-900">
-                    {formatDateIST(selectedExpense.paymentDate, language)}
+                    {formatDateTimeIST(
+                      selectedExpense.paymentDate,
+                      selectedExpense.paymentTime || selectedExpense.deviceCreatedAt,
+                      language
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-200">

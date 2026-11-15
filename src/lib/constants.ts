@@ -158,3 +158,48 @@ export function formatDateIST(dateStr: string, locale: 'hi' | 'en' = 'hi'): stri
   }
 }
 
+/**
+ * Format date and time in Asia/Kolkata timezone
+ * e.g., "16 नव॰ 2026 • 01:28 AM" or "16 Nov 2026 • 01:28 AM"
+ */
+export function formatDateTimeIST(
+  dateStr: string,
+  timeOrCreatedAt?: string,
+  locale: 'hi' | 'en' = 'hi'
+): string {
+  const formattedDate = formatDateIST(dateStr, locale);
+  if (!timeOrCreatedAt) return formattedDate;
+
+  try {
+    // If ISO timestamp (deviceCreatedAt, e.g. "2026-11-15T19:58:00.000Z")
+    if (timeOrCreatedAt.includes('T') || timeOrCreatedAt.endsWith('Z')) {
+      const d = new Date(timeOrCreatedAt);
+      if (!isNaN(d.getTime())) {
+        const timePart = d.toLocaleTimeString('en-US', {
+          timeZone: 'Asia/Kolkata',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        });
+        return `${formattedDate} • ${timePart}`;
+      }
+    }
+
+    // If HH:MM or HH:MM:SS
+    if (/^\d{1,2}:\d{2}/.test(timeOrCreatedAt)) {
+      const [hStr, mStr] = timeOrCreatedAt.split(':');
+      let h = parseInt(hStr, 10);
+      const m = mStr;
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12;
+      if (h === 0) h = 12;
+      const formattedH = h < 10 ? `0${h}` : `${h}`;
+      return `${formattedDate} • ${formattedH}:${m} ${ampm}`;
+    }
+  } catch {
+    // Fallback
+  }
+
+  return formattedDate;
+}
+

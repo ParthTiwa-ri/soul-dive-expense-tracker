@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseVoiceTranscript, extractAmount, extractPaymentMethod, extractDate } from '../src/lib/voiceParser';
-import { formatINR, getTodayIST, getDateStringIST } from '../src/lib/constants';
+import { formatINR, getTodayIST, getDateStringIST, formatDateTimeIST } from '../src/lib/constants';
 
 describe('Hindi Voice Parser & Natural Language Extractor', () => {
   it('should parse spoken Hindi expense: "आज शर्मा जी को सीमेंट के लिए पाँच हजार रुपये UPI से दिए"', () => {
@@ -126,6 +126,18 @@ describe('Indian Standard Time (IST) Date Locking', () => {
   it('should parse spoken "परसों" to day before yesterday in IST', () => {
     const dayBefore = getDateStringIST(-2);
     expect(extractDate('परसों ₹1500 दिए थे')).toBe(dayBefore);
+  });
+
+  it('should format date and time accurately in IST for ISO timestamps and HH:MM strings', () => {
+    // Test ISO string in UTC: 19:58 UTC on Nov 15 is 01:28 AM on Nov 16 in IST
+    const resultFromIso = formatDateTimeIST('2026-11-16', '2026-11-15T19:58:00.000Z', 'hi');
+    expect(resultFromIso).toContain('16 नव॰ 2026');
+    expect(resultFromIso).toContain('01:28 AM');
+
+    // Test simple time string
+    const resultFromTime = formatDateTimeIST('2026-11-16', '14:30', 'en');
+    expect(resultFromTime).toContain('16 Nov 2026');
+    expect(resultFromTime).toContain('02:30 PM');
   });
 });
 

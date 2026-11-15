@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
-import { formatINR, formatDateIST } from '@/lib/constants';
+import { formatINR, formatDateIST, formatDateTimeIST } from '@/lib/constants';
 import { db } from '@/lib/db';
 import { CheckCircle2, Clock, AlertTriangle, Receipt, ChevronRight, X, Image as ImageIcon, Camera, Trash2, Check, Edit3, Lock, ZoomIn, ZoomOut } from 'lucide-react';
 import { compressImage, deleteRemoteExpense, broadcastExpenseChange } from '@/lib/syncEngine';
@@ -281,9 +281,13 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                 )}
 
                 <div className="flex justify-between py-1 border-b border-slate-200">
-                  <span className="text-slate-500">{isHindi ? 'तारीख (Date):' : 'Date:'}</span>
+                  <span className="text-slate-500">{isHindi ? 'तारीख व समय:' : 'Date & Time:'}</span>
                   <span className="font-bold text-slate-900">
-                    {formatDateIST(selectedExpense.paymentDate, language)}
+                    {formatDateTimeIST(
+                      selectedExpense.paymentDate,
+                      selectedExpense.paymentTime || selectedExpense.deviceCreatedAt,
+                      language
+                    )}
                   </span>
                 </div>
 

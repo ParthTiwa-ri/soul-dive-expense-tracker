@@ -135,6 +135,7 @@ export default function QuickExpenseModal({
         phaseName: selectedPhase?.nameEn || 'Construction',
         paymentMethod,
         paymentDate,
+        paymentTime: new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }),
         paidByUserId: currentUser.id,
         paidByName: currentUser.fullName,
         submittedByUserId: currentUser.id,

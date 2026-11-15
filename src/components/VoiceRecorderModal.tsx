@@ -183,6 +183,7 @@ export default function VoiceRecorderModal({
         phaseName: 'Construction (निर्माण)',
         paymentMethod: parsedResult.paymentMethod || 'cash',
         paymentDate: parsedResult.paymentDate || getTodayIST(),
+        paymentTime: new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }),
         paidByUserId: currentUser.id,
         paidByName: currentUser.fullName,
         submittedByUserId: currentUser.id,
