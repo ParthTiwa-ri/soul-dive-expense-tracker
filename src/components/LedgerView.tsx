@@ -59,9 +59,16 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
   // Bottom Sheet Filter Modal State
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
 
+  // Progressive batching for high volume (render 50 at a time for 60fps scrolling)
+  const [visibleCount, setVisibleCount] = useState<number>(50);
+
   // Selected expense for detail popup
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+
+  React.useEffect(() => {
+    setVisibleCount(50);
+  }, [searchQuery, datePreset, customStartDate, customEndDate, selectedMethod, selectedCategory, onlyReceipts, sortBy]);
 
   // Categories list
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
@@ -455,70 +462,99 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
             )}
           </div>
         ) : (
-          filteredExpenses.map((item) => {
-            const isApproved = item.verificationStatus === 'verified';
-            const isSynced = item.syncStatus === 'synced';
+          <>
+            {filteredExpenses.slice(0, visibleCount).map((item) => {
+              const isApproved = item.verificationStatus === 'verified';
+              const isSynced = item.syncStatus === 'synced';
 
-            return (
-              <div
-                key={item.clientUuid}
-                onClick={() => setSelectedExpense(item)}
-                className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-cyan-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99]"
-              >
-                {/* Left: Description, Date, Vendor, Category */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-sm text-slate-900 truncate">{item.description}</span>
-                    {item.hasReceipt && (
-                      <span className="p-1 rounded bg-cyan-100 text-cyan-800" title="Bill Receipt Attached">
-                        <Receipt className="w-3 h-3" />
+              return (
+                <div
+                  key={item.clientUuid}
+                  onClick={() => setSelectedExpense(item)}
+                  className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-cyan-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99]"
+                >
+                  {/* Left: Description, Date, Vendor, Category */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-sm text-slate-900 truncate">{item.description}</span>
+                      {item.hasReceipt && (
+                        <span className="p-1 rounded bg-cyan-100 text-cyan-800" title="Bill Receipt Attached">
+                          <Receipt className="w-3 h-3" />
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {formatDateIST(item.paymentDate, language)} • {item.paymentMethod.toUpperCase()}
+                      {item.vendorName ? ` • ${item.vendorName}` : ''}
+                    </p>
+
+                    <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-400">
+                      <span className="font-medium text-slate-600">{item.paidByName}</span>
+                      <span>•</span>
+                      <span className="text-cyan-700 font-semibold">
+                        {isHindi ? item.categoryNameHi || item.categoryName : item.categoryName}
                       </span>
-                    )}
+                    </div>
                   </div>
 
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {formatDateIST(item.paymentDate, language)} • {item.paymentMethod.toUpperCase()}
-                    {item.vendorName ? ` • ${item.vendorName}` : ''}
-                  </p>
+                  {/* Right: Amount, Approval Badge, Sync Status */}
+                  <div className="text-right flex flex-col items-end flex-shrink-0">
+                    <span className="text-base font-black text-slate-900 tracking-tight">
+                      {formatINR(item.amountPaise)}
+                    </span>
 
-                  <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-400">
-                    <span className="font-medium text-slate-600">{item.paidByName}</span>
-                    <span>•</span>
-                    <span className="text-cyan-700 font-semibold">
-                      {isHindi ? item.categoryNameHi || item.categoryName : item.categoryName}
+                    {/* Prominent Approval Status Badge */}
+                    <div className="mt-1">
+                      {isApproved ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                          <CheckCircle className="w-3 h-3 text-emerald-600" />
+                          {isHindi ? 'मंजूर' : 'Approved'}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300">
+                          <Clock className="w-3 h-3 text-amber-600" />
+                          {isHindi ? 'मंजूरी बाकी' : 'Pending Approval'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Cloud Sync Status */}
+                    <span className="text-[9px] text-slate-400 mt-0.5 font-medium">
+                      {isSynced ? (isHindi ? 'क्लाउड सिंक ✓' : 'Synced ✓') : (isHindi ? 'फोन में सेव' : 'Local Only')}
                     </span>
                   </div>
                 </div>
+              );
+            })}
 
-                {/* Right: Amount, Approval Badge, Sync Status */}
-                <div className="text-right flex flex-col items-end flex-shrink-0">
-                  <span className="text-base font-black text-slate-900 tracking-tight">
-                    {formatINR(item.amountPaise)}
-                  </span>
-
-                  {/* Prominent Approval Status Badge */}
-                  <div className="mt-1">
-                    {isApproved ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
-                        <CheckCircle className="w-3 h-3 text-emerald-600" />
-                        {isHindi ? 'मंजूर' : 'Approved'}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300">
-                        <Clock className="w-3 h-3 text-amber-600" />
-                        {isHindi ? 'मंजूरी बाकी' : 'Pending Approval'}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Cloud Sync Status */}
-                  <span className="text-[9px] text-slate-400 mt-0.5 font-medium">
-                    {isSynced ? (isHindi ? 'क्लाउड सिंक ✓' : 'Synced ✓') : (isHindi ? 'फोन में सेव' : 'Local Only')}
-                  </span>
+            {/* Load More Pagination for Large Transaction Volumes */}
+            {filteredExpenses.length > visibleCount && (
+              <div className="pt-3 pb-2 text-center space-y-2.5 bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                <p className="text-xs text-slate-500 font-medium">
+                  {isHindi
+                    ? `${filteredExpenses.length} में से पहले ${visibleCount} खर्च दिखाए जा रहे हैं`
+                    : `Showing first ${visibleCount} of ${filteredExpenses.length} expenses`}
+                </p>
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount((prev) => prev + 50)}
+                    className="py-2.5 px-4 bg-white border border-cyan-300 hover:border-cyan-500 rounded-xl text-xs font-bold text-cyan-900 shadow-sm transition-all active:scale-95"
+                  >
+                    {isHindi ? 'और ५० खर्च लोड करें (+50)' : 'Load 50 More'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(filteredExpenses.length)}
+                    className="py-2.5 px-3.5 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-bold text-slate-700 transition-all active:scale-95"
+                  >
+                    {isHindi ? `सभी (${filteredExpenses.length}) देखें` : `Show All (${filteredExpenses.length})`}
+                  </button>
                 </div>
               </div>
-            );
-          })
+            )}
+          </>
         )}
       </div>
 
