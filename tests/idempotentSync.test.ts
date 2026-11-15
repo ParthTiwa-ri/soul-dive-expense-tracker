@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { POST as syncExpenseHandler } from '../src/app/api/sync/expenses/route';
+import {
+  POST as syncExpenseHandler,
+  GET as getExpensesHandler,
+  DELETE as deleteExpenseHandler,
+} from '../src/app/api/sync/expenses/route';
 
 describe('Server Idempotent Sync API (/api/sync/expenses)', () => {
   it('should accept a new valid expense and return 200 with synced status', async () => {
@@ -72,6 +76,40 @@ describe('Server Idempotent Sync API (/api/sync/expenses)', () => {
 
     const res = await syncExpenseHandler({ json: async () => invalidPayload } as any);
     expect(res.status).toBe(400);
+  });
+
+  it('should delete expense and exclude it from GET responses consistently', async () => {
+    const toDeleteUuid = 'test-delete-uuid-' + Date.now();
+    await syncExpenseHandler({
+      json: async () => ({
+        clientUuid: toDeleteUuid,
+        amountPaise: 150000,
+        currency: 'INR',
+        description: 'खर्चा जिसे डिलीट करना है',
+        categoryId: 'cat-bricks-cement',
+        phaseId: 'phase-construction',
+        paymentMethod: 'cash',
+        paymentDate: '2026-11-15',
+        paidByUserId: '11111111-1111-1111-1111-111111111111',
+        paidByName: 'कृष्ण मुरारी तिवारी',
+        submittedByUserId: '11111111-1111-1111-1111-111111111111',
+        submittedByName: 'कृष्ण मुरारी तिवारी',
+        deviceCreatedAt: new Date().toISOString(),
+      }),
+    } as any);
+
+    // Call DELETE
+    const deleteRes = await deleteExpenseHandler({
+      url: `http://localhost:3000/api/sync/expenses?clientUuid=${toDeleteUuid}`,
+      json: async () => ({ clientUuid: toDeleteUuid }),
+    } as any);
+    expect(deleteRes.status).toBe(200);
+
+    // Verify GET does not contain it
+    const getRes = await getExpensesHandler();
+    const getData = await getRes.json();
+    const found = getData.records.find((r: any) => (r.clientUuid || r.client_uuid) === toDeleteUuid);
+    expect(found).toBeUndefined();
   });
 });
 

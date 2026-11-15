@@ -5,9 +5,10 @@ import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
 import { formatINR, formatDateIST } from '@/lib/constants';
 import { db } from '@/lib/db';
-import { ShieldCheck, CheckCircle2, Clock, Receipt, Image as ImageIcon, Check, Edit3, Lock } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Clock, Receipt, Image as ImageIcon, Check, Edit3, Lock, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import EditExpenseModal from '@/components/EditExpenseModal';
+import { deleteRemoteExpense } from '@/lib/syncEngine';
 
 interface ApprovalViewProps {
   expenses: Expense[];
@@ -57,6 +58,30 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
       } catch (e) {}
     } catch (err) {
       console.error('Failed to verify expense:', err);
+    }
+  };
+
+  // Handle Delete action
+  const handleDeleteExpense = async (clientUuid: string, isVerifiedExpense: boolean) => {
+    if (isVerifiedExpense && !isSuperAdmin) {
+      alert(isHindi ? 'मंजूरशुदा खर्च को डिलीट नहीं किया जा सकता।' : 'Approved expenses cannot be deleted.');
+      return;
+    }
+
+    const confirmText = isHindi
+      ? isVerifiedExpense
+        ? '⚡ सुपर एडमिन: क्या आप वाकई इस मंजूरशुदा खर्च को हमेशा के लिए डिलीट करना चाहते हैं?'
+        : 'क्या आप इस खर्च को हमेशा के लिए हटाना (Delete) चाहते हैं?'
+      : isVerifiedExpense
+      ? '⚡ Super Admin: Are you sure you want to permanently DELETE this APPROVED expense?'
+      : 'Are you sure you want to permanently delete this expense?';
+    if (!confirm(confirmText)) return;
+
+    try {
+      await db.expenses.delete(clientUuid);
+      deleteRemoteExpense(clientUuid);
+    } catch (err) {
+      console.error('Failed to delete expense:', err);
     }
   };
 
@@ -237,6 +262,17 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
                           >
                             <Check className="w-4 h-4 stroke-[3px]" />
                             <span>{isHindi ? 'मंजूर करें' : 'Approve'}</span>
+                          </button>
+                        )}
+
+                        {(!isVerified || isSuperAdmin) && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteExpense(expense.clientUuid, isVerified)}
+                            className="p-1.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors active:scale-95"
+                            title={isHindi ? 'डिलीट करें' : 'Delete'}
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </>

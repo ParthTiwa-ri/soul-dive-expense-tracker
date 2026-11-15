@@ -6,7 +6,7 @@ import { Expense } from '@/types';
 import { formatINR, formatDateIST } from '@/lib/constants';
 import { db } from '@/lib/db';
 import { CheckCircle2, Clock, AlertTriangle, Receipt, ChevronRight, X, Image as ImageIcon, Camera, Trash2, Check, Edit3, Lock } from 'lucide-react';
-import { compressImage } from '@/lib/syncEngine';
+import { compressImage, deleteRemoteExpense } from '@/lib/syncEngine';
 import EditExpenseModal from '@/components/EditExpenseModal';
 
 interface RecentExpensesListProps {
@@ -57,36 +57,38 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
     }
   };
 
-  // Void unverified transaction (or override by Super Admin)
-  const handleVoidExpense = async (clientUuid: string) => {
+  // Delete transaction (or override by Super Admin)
+  const handleDeleteExpense = async (clientUuid: string) => {
     if (selectedExpense?.verificationStatus === 'verified' && !isSuperAdmin) {
-      alert(isHindi ? 'मंजूरशुदा (Approved) खर्च को रद्द या डिलीट नहीं किया जा सकता।' : 'Approved expenses cannot be voided.');
+      alert(isHindi ? 'मंजूरशुदा (Approved) खर्च को रद्द या डिलीट नहीं किया जा सकता।' : 'Approved expenses cannot be deleted.');
       return;
     }
 
     const isApproved = selectedExpense?.verificationStatus === 'verified';
     const confirmText = isHindi
       ? isApproved
-        ? '⚡ सुपर एडमिन: क्या आप वाकई इस मंजूरशुदा (Approved) खर्च को रद्द (Void) करना चाहते हैं?'
-        : 'क्या आप इस खर्च को रद्द (Void) करना चाहते हैं?'
+        ? '⚡ सुपर एडमिन: क्या आप वाकई इस मंजूरशुदा (Approved) खर्च को हमेशा के लिए डिलीट करना चाहते हैं?'
+        : 'क्या आप इस खर्च को हमेशा के लिए डिलीट करना चाहते हैं?'
       : isApproved
-      ? '⚡ Super Admin: Are you sure you want to VOID this APPROVED expense?'
-      : 'Do you want to void this expense entry?';
+      ? '⚡ Super Admin: Are you sure you want to permanently DELETE this APPROVED expense?'
+      : 'Do you want to permanently delete this expense?';
     if (!confirm(confirmText)) return;
 
     try {
-      await db.expenses.update(clientUuid, {
-        status: 'voided',
-        syncStatus: 'pending', // Re-sync void status to server
-      });
+      // 1. Delete permanently from local Dexie IndexedDB
+      await db.expenses.delete(clientUuid);
+      // 2. Delete permanently from server / Supabase ledger
+      deleteRemoteExpense(clientUuid);
       setSelectedExpense(null);
       if (onRefresh) onRefresh();
     } catch (err) {
-      console.error('Failed to void expense:', err);
+      console.error('Failed to delete expense:', err);
     }
   };
 
-  if (!expenses || expenses.length === 0) {
+  const activeExpenses = (expenses || []).filter((e) => e.status !== 'voided');
+
+  if (activeExpenses.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm">
         <Receipt className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -104,7 +106,7 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
 
   return (
     <div className="space-y-3">
-      {expenses.map((expense) => {
+      {activeExpenses.map((expense) => {
         const isSynced = expense.syncStatus === 'synced';
         const isFailed = expense.syncStatus === 'failed';
         const isVoided = expense.status === 'voided';
@@ -363,9 +365,9 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                 )}
               </div>
 
-              {(selectedExpense.verificationStatus !== 'verified' || isSuperAdmin) && isOwner && selectedExpense.status !== 'voided' && (
+              {(selectedExpense.verificationStatus !== 'verified' || isSuperAdmin) && isOwner && (
                 <button
-                  onClick={() => handleVoidExpense(selectedExpense.clientUuid)}
+                  onClick={() => handleDeleteExpense(selectedExpense.clientUuid)}
                   className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors ${
                     isSuperAdmin && selectedExpense.verificationStatus === 'verified'
                       ? 'border-rose-400 bg-rose-50 text-rose-800 hover:bg-rose-100'
@@ -376,11 +378,11 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                   <span>
                     {isSuperAdmin && selectedExpense.verificationStatus === 'verified'
                       ? isHindi
-                        ? 'सुपर रद्द (Void)'
-                        : 'Super Void'
+                        ? 'सुपर डिलीट'
+                        : 'Super Delete'
                       : isHindi
-                      ? 'रद्द करें (Void)'
-                      : 'Void'}
+                      ? 'डिलीट करें'
+                      : 'Delete'}
                   </span>
                 </button>
               )}

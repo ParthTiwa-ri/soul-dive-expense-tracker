@@ -65,6 +65,24 @@ export async function compressImage(file: File): Promise<{ blob: Blob; dataUrl: 
 }
 
 /**
+ * Deletes an expense from the remote server / Supabase
+ */
+export async function deleteRemoteExpense(clientUuid: string): Promise<boolean> {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return false;
+  }
+  try {
+    await fetch(`/api/sync/expenses?clientUuid=${encodeURIComponent(clientUuid)}`, {
+      method: 'DELETE',
+    });
+    return true;
+  } catch (err) {
+    console.warn('Failed to delete remote expense:', err);
+    return false;
+  }
+}
+
+/**
  * Pulls newly synchronized expenses from the server / Supabase into local Dexie IndexedDB
  * so both users (Father and Manu) can see each other's expenses in real time.
  */
@@ -85,6 +103,13 @@ export async function pullRemoteExpenses(): Promise<number> {
     for (const r of remoteRecords) {
       const clientUuid = r.clientUuid || r.client_uuid;
       if (!clientUuid) continue;
+
+      const remoteStatus = r.status;
+      if (remoteStatus === 'voided') {
+        // If deleted/voided on remote, remove locally as well
+        await db.expenses.delete(clientUuid);
+        continue;
+      }
 
       const existing = await db.expenses.get(clientUuid);
 
@@ -212,13 +237,18 @@ export async function syncPendingExpenses(): Promise<{ syncedCount: number; fail
 
       const result = await response.json();
 
-      // Only mark synced after explicit server confirmation
-      await db.expenses.update(record.clientUuid, {
-        id: result.id || record.clientUuid,
-        syncStatus: 'synced',
-        serverCreatedAt: result.serverCreatedAt || new Date().toISOString(),
-        syncError: undefined,
-      });
+      if (record.status === 'voided') {
+        // Once server acknowledges deletion/void, remove completely from local Dexie database
+        await db.expenses.delete(record.clientUuid);
+      } else {
+        // Only mark synced after explicit server confirmation
+        await db.expenses.update(record.clientUuid, {
+          id: result.id || record.clientUuid,
+          syncStatus: 'synced',
+          serverCreatedAt: result.serverCreatedAt || new Date().toISOString(),
+          syncError: undefined,
+        });
+      }
 
       syncedCount++;
     } catch (err: any) {

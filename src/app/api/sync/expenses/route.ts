@@ -41,12 +41,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing clientUuid for idempotency' }, { status: 400 });
     }
 
+    const supabase = getSupabaseServerClient();
+
+    // If deleting / voiding an expense, remove from both Supabase and memory ledger
+    if (body.status === 'voided') {
+      if (supabase) {
+        try {
+          await supabase.from('expenses').delete().eq('client_uuid', clientUuid);
+        } catch (err) {
+          console.warn('Supabase delete failed:', err);
+        }
+      }
+      localFallbackLedger.delete(clientUuid);
+      return NextResponse.json({ clientUuid, status: 'deleted', message: 'Expense deleted/voided' });
+    }
+
     if (!body.amountPaise || body.amountPaise <= 0) {
       return NextResponse.json({ error: 'amountPaise must be greater than zero' }, { status: 400 });
     }
-
-    // 1. If Supabase is configured, use production PostgreSQL database
-    const supabase = getSupabaseServerClient();
     if (supabase) {
       try {
         // Idempotency check: see if client_uuid already exists in Supabase
@@ -176,6 +188,7 @@ export async function GET() {
       const { data: records, error } = await supabase
         .from('expenses')
         .select('*')
+        .neq('status', 'voided')
         .order('created_at', { ascending: false });
 
       if (!error && records) {
@@ -190,14 +203,50 @@ export async function GET() {
     }
   }
 
-  // Fallback to local memory ledger
-  const records = Array.from(localFallbackLedger.values()).sort(
-    (a, b) => new Date(b.serverCreatedAt).getTime() - new Date(a.serverCreatedAt).getTime()
-  );
+  // Fallback to local memory ledger (strictly exclude voided/deleted)
+  const records = Array.from(localFallbackLedger.values())
+    .filter((e) => e.status !== 'voided')
+    .sort((a, b) => new Date(b.serverCreatedAt).getTime() - new Date(a.serverCreatedAt).getTime());
 
   return NextResponse.json({
     totalCount: records.length,
     records,
     source: 'local_memory',
   });
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    let clientUuid = searchParams.get('clientUuid');
+    if (!clientUuid) {
+      try {
+        const body = await req.json();
+        clientUuid = body.clientUuid;
+      } catch {}
+    }
+
+    if (!clientUuid) {
+      return NextResponse.json({ error: 'Missing clientUuid' }, { status: 400 });
+    }
+
+    const supabase = getSupabaseServerClient();
+    if (supabase) {
+      try {
+        await supabase.from('expenses').delete().eq('client_uuid', clientUuid);
+      } catch (err) {
+        console.warn('Supabase delete failed:', err);
+      }
+    }
+
+    localFallbackLedger.delete(clientUuid);
+
+    return NextResponse.json({
+      success: true,
+      clientUuid,
+      message: 'Expense deleted successfully from server ledger',
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
+  }
 }

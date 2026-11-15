@@ -176,3 +176,4 @@ export default function SecretPinModal({ isOpen, onClose, onSuccess }: SecretPin
     </div>
   );
 }
+

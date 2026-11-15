@@ -42,6 +42,9 @@ export async function initializeLocalDatabase(): Promise<void> {
     // Keep profiles up-to-date with current defaults
     await db.profiles.bulkPut(DEFAULT_PROFILES);
 
+    // Purge any voided or deleted expenses from local IndexedDB so they never show anywhere
+    await db.expenses.where('status').equals('voided').delete();
+
     // Sanitize any previously saved names in existing expenses
     await db.expenses.toCollection().modify((expense) => {
       let changed = false;

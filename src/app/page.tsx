@@ -32,11 +32,13 @@ export default function HomePage() {
     }
   }, [currentUser.role, activeTab]);
 
-  // Live reactive query directly linked to Dexie IndexedDB
+  // Live reactive query directly linked to Dexie IndexedDB (strictly active, non-voided expenses)
   const liveExpenses = useLiveQuery(
     async () => {
-      const allExpenses = await db.expenses.toArray();
-      return allExpenses.sort(
+      const activeExpenses = await db.expenses
+        .filter((e) => e.status !== 'voided')
+        .toArray();
+      return activeExpenses.sort(
         (a, b) => new Date(b.deviceCreatedAt).getTime() - new Date(a.deviceCreatedAt).getTime()
       );
     },

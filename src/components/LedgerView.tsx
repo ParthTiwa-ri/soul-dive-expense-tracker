@@ -19,9 +19,11 @@ import {
   ChevronDown,
   Edit3,
   Lock,
+  Trash2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import EditExpenseModal from '@/components/EditExpenseModal';
+import { deleteRemoteExpense } from '@/lib/syncEngine';
 
 interface LedgerViewProps {
   expenses: Expense[];
@@ -101,6 +103,9 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
   const filteredExpenses = useMemo(() => {
     return expenses
       .filter((e) => {
+        // Exclude voided / deleted expenses
+        if (e.status === 'voided') return false;
+
         // 1. Text Search
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
@@ -199,6 +204,32 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
       } catch (e) {}
     } catch (err) {
       console.error('Failed to approve expense:', err);
+    }
+  };
+
+  // Handle Delete action
+  const handleDeleteExpense = async (clientUuid: string) => {
+    if (selectedExpense?.verificationStatus === 'verified' && !isSuperAdmin) {
+      alert(isHindi ? 'मंजूरशुदा खर्च को डिलीट नहीं किया जा सकता।' : 'Approved expenses cannot be deleted.');
+      return;
+    }
+
+    const isApproved = selectedExpense?.verificationStatus === 'verified';
+    const confirmText = isHindi
+      ? isApproved
+        ? '⚡ सुपर एडमिन: क्या आप वाकई इस मंजूरशुदा खर्च को हमेशा के लिए डिलीट करना चाहते हैं?'
+        : 'क्या आप इस खर्च को हमेशा के लिए हटाना (Delete) चाहते हैं?'
+      : isApproved
+      ? '⚡ Super Admin: Are you sure you want to permanently DELETE this APPROVED expense?'
+      : 'Are you sure you want to permanently delete this expense?';
+    if (!confirm(confirmText)) return;
+
+    try {
+      await db.expenses.delete(clientUuid);
+      deleteRemoteExpense(clientUuid);
+      setSelectedExpense(null);
+    } catch (err) {
+      console.error('Failed to delete expense:', err);
     }
   };
 
@@ -812,6 +843,29 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                   </>
                 )}
               </div>
+
+              {(selectedExpense.verificationStatus !== 'verified' || isSuperAdmin) && isOwner && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteExpense(selectedExpense.clientUuid)}
+                  className={`py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                    isSuperAdmin && selectedExpense.verificationStatus === 'verified'
+                      ? 'border-rose-400 bg-rose-50 text-rose-800 hover:bg-rose-100'
+                      : 'border-rose-300 bg-white hover:bg-rose-50 text-rose-700'
+                  }`}
+                >
+                  <Trash2 className="w-4 h-4 text-rose-600" />
+                  <span>
+                    {isSuperAdmin && selectedExpense.verificationStatus === 'verified'
+                      ? isHindi
+                        ? 'सुपर डिलीट'
+                        : 'Super Delete'
+                      : isHindi
+                      ? 'डिलीट करें'
+                      : 'Delete'}
+                  </span>
+                </button>
+              )}
 
               <button
                 type="button"
