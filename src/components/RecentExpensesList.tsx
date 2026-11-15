@@ -5,7 +5,7 @@ import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
 import { formatINR, formatDateIST } from '@/lib/constants';
 import { db } from '@/lib/db';
-import { CheckCircle2, Clock, AlertTriangle, Receipt, ChevronRight, X, Image as ImageIcon, Camera, Trash2, Check, Edit3, Lock } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, Receipt, ChevronRight, X, Image as ImageIcon, Camera, Trash2, Check, Edit3, Lock, ZoomIn, ZoomOut } from 'lucide-react';
 import { compressImage, deleteRemoteExpense, broadcastExpenseChange } from '@/lib/syncEngine';
 import EditExpenseModal from '@/components/EditExpenseModal';
 
@@ -23,6 +23,8 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isAttachingReceipt, setIsAttachingReceipt] = useState(false);
+  const [zoomReceiptUrl, setZoomReceiptUrl] = useState<string | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
 
   // Handle receipt attachment to an existing expense
   const handleAttachReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,14 +128,33 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
           <div
             key={expense.clientUuid}
             onClick={() => setSelectedExpense(expense)}
-            className={`bg-white rounded-2xl p-4 border transition-all active:scale-[0.99] cursor-pointer shadow-sm hover:shadow-md flex items-center justify-between ${
+            className={`bg-white rounded-2xl p-3.5 sm:p-4 border transition-all active:scale-[0.99] cursor-pointer shadow-sm hover:shadow-md flex items-center justify-between gap-3 ${
               isVoided
                 ? 'opacity-60 bg-slate-50 border-slate-200'
                 : 'border-slate-200/90 hover:border-cyan-300'
             }`}
           >
+            {/* Bill Photo Mini Thumbnail */}
+            {expense.hasReceipt && expense.receiptDataUrl ? (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoomReceiptUrl(expense.receiptDataUrl || null);
+                  setIsZoomed(false);
+                }}
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl overflow-hidden border border-cyan-200 flex-shrink-0 cursor-pointer shadow-xs hover:scale-105 transition-transform bg-slate-100"
+                title={isHindi ? 'बिल फोटो बड़ा देखें' : 'Tap to zoom bill'}
+              >
+                <img
+                  src={expense.receiptDataUrl}
+                  alt="Receipt"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : null}
+
             {/* Left: Purpose, Vendor, Date & Sync Badge */}
-            <div className="flex-1 min-w-0 pr-3">
+            <div className="flex-1 min-w-0 pr-1">
               <div className="flex items-center gap-2 mb-1">
                 <span
                   className={`font-bold text-sm text-slate-900 truncate ${
@@ -293,12 +314,23 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                 </span>
 
                 {selectedExpense.receiptDataUrl ? (
-                  <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-h-56 flex items-center justify-center bg-slate-100">
+                  <div
+                    onClick={() => {
+                      setZoomReceiptUrl(selectedExpense.receiptDataUrl || null);
+                      setIsZoomed(false);
+                    }}
+                    className="group relative rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-h-56 flex items-center justify-center bg-slate-100 cursor-pointer hover:border-cyan-400 transition-colors"
+                    title={isHindi ? 'बड़ा देखने के लिए क्लिक करें' : 'Click to zoom'}
+                  >
                     <img
                       src={selectedExpense.receiptDataUrl}
                       alt="Bill receipt"
                       className="w-full h-full object-contain"
                     />
+                    <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5 backdrop-blur-[2px]">
+                      <ZoomIn className="w-4 h-4" />
+                      <span>{isHindi ? 'बड़ा देखें (Zoom)' : 'Zoom View'}</span>
+                    </div>
                   </div>
                 ) : (
                   <label className="cursor-pointer flex items-center justify-center gap-2 py-4 px-3 rounded-2xl border-2 border-dashed border-cyan-400 bg-cyan-50/40 hover:bg-cyan-100/40 text-cyan-800 text-xs font-bold transition-colors">
@@ -422,6 +454,67 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
           if (onRefresh) onRefresh();
         }}
       />
+
+      {/* Fullscreen Tap-to-Zoom Receipt Modal */}
+      {zoomReceiptUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            setZoomReceiptUrl(null);
+            setIsZoomed(false);
+          }}
+        >
+          {/* Top Controls */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsZoomed(!isZoomed);
+              }}
+              className="px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition-all active:scale-95 flex items-center gap-1.5 text-xs font-bold"
+              title={isZoomed ? 'Zoom Out' : 'Zoom In'}
+            >
+              {isZoomed ? <ZoomOut className="w-4 h-4" /> : <ZoomIn className="w-4 h-4" />}
+              <span>{isZoomed ? (isHindi ? 'छोटा' : 'Zoom Out') : (isHindi ? 'बड़ा' : 'Zoom In')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setZoomReceiptUrl(null);
+                setIsZoomed(false);
+              }}
+              className="p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition-all active:scale-95"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Centered Image with Zoom Toggle */}
+          <div
+            className={`max-w-4xl max-h-[82vh] overflow-auto rounded-2xl flex items-center justify-center ${
+              isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsZoomed(!isZoomed);
+            }}
+          >
+            <img
+              src={zoomReceiptUrl}
+              alt="Receipt Preview"
+              className={`rounded-xl object-contain transition-transform duration-200 select-none shadow-2xl ${
+                isZoomed ? 'scale-150 my-16 mx-16' : 'max-h-[80vh] w-auto'
+              }`}
+            />
+          </div>
+
+          <p className="text-white/70 text-xs mt-3 select-none">
+            {isHindi ? '🔍 बड़ा/छोटा करने के लिए फोटो पर टैप करें' : '🔍 Tap image to zoom in / out'}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { db } from '@/lib/db';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 import RecentExpensesList from '@/components/RecentExpensesList';
-import { Mic, Plus, CloudOff, RefreshCw, Sparkles } from 'lucide-react';
+import { Mic, Plus, CloudOff, RefreshCw, Sparkles, CheckCircle2 } from 'lucide-react';
 
 // Lazy-load heavy components on demand so initial page load and LCP are instantaneous (< 1s)
 const DashboardView = dynamic(() => import('@/components/DashboardView'), {
@@ -48,7 +48,7 @@ const QuickExpenseModal = dynamic(() => import('@/components/QuickExpenseModal')
 });
 
 export default function HomePage() {
-  const { language, isOnline, syncStats, triggerSync, isSyncing, currentUser, syncVersion } = useApp();
+  const { language, isOnline, syncStats, triggerSync, isSyncing, currentUser, syncVersion, toast } = useApp();
   const isHindi = language === 'hi';
 
   const [activeTab, setActiveTab] = useState<'entry' | 'ledger' | 'dashboard' | 'approvals'>('entry');
@@ -157,7 +157,12 @@ export default function HomePage() {
 
               {/* Dominant Circular Mic Action Button */}
               <button
-                onClick={() => setIsVoiceModalOpen(true)}
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                    try { navigator.vibrate(50); } catch (e) {}
+                  }
+                  setIsVoiceModalOpen(true);
+                }}
                 className="w-28 h-28 rounded-full bg-gradient-to-tr from-cyan-600 via-teal-500 to-cyan-400 text-white flex items-center justify-center shadow-xl shadow-cyan-600/30 hover:scale-105 active:scale-95 transition-all duration-200 group"
               >
                 <Mic className="w-12 h-12 text-white group-hover:scale-110 transition-transform" />
@@ -250,6 +255,14 @@ export default function HomePage() {
         onSaved={handleExpenseSaved}
         initialData={manualInitialData}
       />
+
+      {/* Floating Bottom Confirmation Toast */}
+      {toast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 backdrop-blur text-white px-4 py-2.5 rounded-full shadow-2xl border border-cyan-500/40 text-xs font-bold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-200 pointer-events-none">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <span>{toast}</span>
+        </div>
+      )}
 
       {/* Thumb-Zone Bottom Navigation */}
       <BottomNav

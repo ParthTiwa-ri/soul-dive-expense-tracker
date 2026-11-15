@@ -20,6 +20,8 @@ interface AppContextType {
   isSuperAdmin: boolean;
   unlockSuperAdmin: (pin: string) => boolean;
   exitSuperAdmin: () => void;
+  toast: string | null;
+  showToast: (msg: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -30,6 +32,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncVersion, setSyncVersion] = useState<number>(0);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimeoutRef = React.useRef<any>(null);
+
+  const showToast = (msg: string) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToast(msg);
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null);
+    }, 2500);
+  };
+
   const [syncStats, setSyncStats] = useState<SyncStats>({
     pendingCount: 0,
     syncingCount: 0,
@@ -311,6 +324,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isSuperAdmin,
         unlockSuperAdmin,
         exitSuperAdmin,
+        toast,
+        showToast,
       }}
     >
       {children}

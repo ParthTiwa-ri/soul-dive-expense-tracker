@@ -22,7 +22,7 @@ export default function QuickExpenseModal({
   onSaved,
   initialData,
 }: QuickExpenseModalProps) {
-  const { currentUser, language } = useApp();
+  const { currentUser, language, showToast } = useApp();
   const isHindi = language === 'hi';
 
   // 3 Core Fields
@@ -162,6 +162,7 @@ export default function QuickExpenseModal({
         });
       } catch (e) {}
 
+      showToast(isHindi ? '✓ खर्च सुरक्षित सेव हो गया' : '✓ Expense saved successfully');
       onSaved(newExpense);
       onClose();
     } catch (err) {
@@ -216,6 +217,35 @@ export default function QuickExpenseModal({
                 onChange={(e) => setAmountRupees(e.target.value)}
                 className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border-2 border-slate-200 focus:border-cyan-500 focus:bg-white rounded-2xl text-2xl font-black text-slate-900 tracking-tight outline-none transition-colors"
               />
+            </div>
+
+            {/* Quick Rupee Chips for Instant 1-Tap Entry */}
+            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+              {[100, 500, 1000, 2000, 5000].map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => {
+                    const current = parseFloat(amountRupees) || 0;
+                    setAmountRupees((current + chip).toString());
+                    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                      try { navigator.vibrate(30); } catch (e) {}
+                    }
+                  }}
+                  className="px-2.5 py-1.5 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 text-cyan-900 rounded-xl text-xs font-bold transition-all active:scale-95"
+                >
+                  +₹{chip.toLocaleString('en-IN')}
+                </button>
+              ))}
+              {amountRupees && parseFloat(amountRupees) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setAmountRupees('')}
+                  className="px-2 py-1.5 text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors ml-auto"
+                >
+                  {isHindi ? 'साफ करें' : 'Clear'}
+                </button>
+              )}
             </div>
           </div>
 

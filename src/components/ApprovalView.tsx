@@ -5,7 +5,7 @@ import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
 import { formatINR, formatDateIST } from '@/lib/constants';
 import { db } from '@/lib/db';
-import { ShieldCheck, CheckCircle2, Clock, Receipt, Image as ImageIcon, Check, Edit3, Lock, Trash2 } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Clock, Receipt, Image as ImageIcon, Check, Edit3, Lock, Trash2, ZoomIn, ZoomOut, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import EditExpenseModal from '@/components/EditExpenseModal';
 import { deleteRemoteExpense, broadcastExpenseChange } from '@/lib/syncEngine';
@@ -15,13 +15,15 @@ interface ApprovalViewProps {
 }
 
 export default function ApprovalView({ expenses }: ApprovalViewProps) {
-  const { language, currentUser, triggerSync } = useApp();
+  const { language, currentUser, triggerSync, showToast } = useApp();
   const isHindi = language === 'hi';
   const isSuperAdmin = currentUser.role === 'super_admin';
 
   const [filterMode, setFilterMode] = useState<'pending' | 'verified'>('pending');
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [isApprovingAll, setIsApprovingAll] = useState(false);
 
   // Filter unverified and verified active expenses
   const unverifiedExpenses = useMemo(() => {
@@ -62,8 +64,56 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
           origin: { y: 0.8 },
         });
       } catch (e) {}
+
+      showToast(isHindi ? '✓ खर्च मंजूर हो गया' : '✓ Expense approved');
     } catch (err) {
       console.error('Failed to verify expense:', err);
+    }
+  };
+
+  // Bulk Approve all currently pending expenses
+  const handleApproveAll = async () => {
+    if (unverifiedExpenses.length === 0 || isApprovingAll) return;
+    const confirmText = isHindi
+      ? `क्या आप सभी ${unverifiedExpenses.length} खर्चों को एक साथ मंजूर करना चाहते हैं?`
+      : `Approve all ${unverifiedExpenses.length} pending expenses at once?`;
+    if (!confirm(confirmText)) return;
+
+    setIsApprovingAll(true);
+    try {
+      const nowIso = new Date().toISOString();
+      for (const exp of unverifiedExpenses) {
+        await db.expenses.update(exp.clientUuid, {
+          verificationStatus: 'verified',
+          verifiedByUserId: currentUser.id,
+          verifiedByName: currentUser.fullName,
+          verifiedAt: nowIso,
+          syncStatus: 'pending',
+        });
+      }
+
+      broadcastExpenseChange();
+      if (typeof window !== 'undefined' && navigator.onLine) {
+        triggerSync();
+      }
+
+      showToast(
+        isHindi
+          ? `✓ सभी ${unverifiedExpenses.length} खर्च मंजूर हो गए`
+          : `✓ All ${unverifiedExpenses.length} expenses approved`
+      );
+
+      try {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+      } catch (e) {}
+    } catch (err) {
+      console.error('Failed to approve all expenses:', err);
+    } finally {
+      setIsApprovingAll(false);
     }
   };
 
@@ -148,6 +198,39 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
         </div>
       </div>
 
+      {/* Bulk Quick Approve Card (when more than 1 pending) */}
+      {filterMode === 'pending' && unverifiedExpenses.length > 1 && (
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm animate-in fade-in">
+          <div>
+            <span className="text-xs font-black text-emerald-950 block">
+              {isHindi ? '⚡ एकमुश्त मंजूरी (Bulk Approve)' : '⚡ Quick Bulk Approval'}
+            </span>
+            <span className="text-[11px] text-emerald-800 font-semibold">
+              {isHindi
+                ? `सभी ${unverifiedExpenses.length} खर्चों को 1-टैप में सत्यापित करें`
+                : `Verify all ${unverifiedExpenses.length} pending expenses at once`}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleApproveAll}
+            disabled={isApprovingAll}
+            className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5 flex-shrink-0 disabled:opacity-50"
+          >
+            <Check className="w-4 h-4 stroke-[3px]" />
+            <span>
+              {isApprovingAll
+                ? isHindi
+                  ? 'मंजूर हो रहे हैं...'
+                  : 'Approving...'
+                : isHindi
+                ? `सभी (${unverifiedExpenses.length}) मंजूर करें`
+                : `Approve All (${unverifiedExpenses.length})`}
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* Expense List */}
       <div className="space-y-3">
         {displayList.length === 0 ? (
@@ -209,13 +292,30 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
 
                 {/* Receipt Preview Thumbnail if present */}
                 {expense.hasReceipt && expense.receiptDataUrl && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    <div
+                      onClick={() => {
+                        setSelectedReceiptUrl(expense.receiptDataUrl || null);
+                        setIsZoomed(false);
+                      }}
+                      className="w-12 h-12 rounded-xl overflow-hidden border border-cyan-200 flex-shrink-0 cursor-pointer shadow-xs hover:scale-105 transition-transform bg-slate-100"
+                      title={isHindi ? 'बिल फोटो बड़ा देखें' : 'Tap to zoom bill'}
+                    >
+                      <img
+                        src={expense.receiptDataUrl}
+                        alt="Receipt"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setSelectedReceiptUrl(expense.receiptDataUrl || null)}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-cyan-50 border border-cyan-200 rounded-lg text-cyan-800 text-xs font-semibold hover:bg-cyan-100 transition-colors"
+                      onClick={() => {
+                        setSelectedReceiptUrl(expense.receiptDataUrl || null);
+                        setIsZoomed(false);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-cyan-50 border border-cyan-200 rounded-xl text-cyan-800 text-xs font-bold hover:bg-cyan-100 transition-colors"
                     >
-                      <Receipt className="w-3.5 h-3.5 text-cyan-600" />
+                      <Receipt className="w-4 h-4 text-cyan-600" />
                       <span>{isHindi ? 'बिल की फोटो देखें' : 'View Bill Receipt'}</span>
                     </button>
                   </div>
@@ -305,30 +405,64 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
         onClose={() => setEditingExpense(null)}
       />
 
-      {/* Receipt Photo Modal */}
+      {/* Fullscreen Tap-to-Zoom Receipt Modal */}
       {selectedReceiptUrl && (
         <div
-          onClick={() => setSelectedReceiptUrl(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            setSelectedReceiptUrl(null);
+            setIsZoomed(false);
+          }}
         >
-          <div className="max-w-md w-full bg-white rounded-2xl p-3 shadow-2xl space-y-3">
-            <div className="flex justify-between items-center px-1">
-              <span className="text-xs font-bold text-slate-700">
-                {isHindi ? 'बिल की प्रति' : 'Bill Receipt'}
-              </span>
-              <button
-                onClick={() => setSelectedReceiptUrl(null)}
-                className="text-xs font-bold text-slate-500 hover:text-slate-800"
-              >
-                ✕ बंद करें
-              </button>
-            </div>
+          {/* Top Controls */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsZoomed(!isZoomed);
+              }}
+              className="px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition-all active:scale-95 flex items-center gap-1.5 text-xs font-bold"
+              title={isZoomed ? 'Zoom Out' : 'Zoom In'}
+            >
+              {isZoomed ? <ZoomOut className="w-4 h-4" /> : <ZoomIn className="w-4 h-4" />}
+              <span>{isZoomed ? (isHindi ? 'छोटा' : 'Zoom Out') : (isHindi ? 'बड़ा' : 'Zoom In')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedReceiptUrl(null);
+                setIsZoomed(false);
+              }}
+              className="p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition-all active:scale-95"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Centered Image with Zoom Toggle */}
+          <div
+            className={`max-w-4xl max-h-[82vh] overflow-auto rounded-2xl flex items-center justify-center ${
+              isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsZoomed(!isZoomed);
+            }}
+          >
             <img
               src={selectedReceiptUrl}
-              alt="Receipt"
-              className="w-full max-h-[75vh] object-contain rounded-xl border border-slate-200"
+              alt="Receipt Preview"
+              className={`rounded-xl object-contain transition-transform duration-200 select-none shadow-2xl ${
+                isZoomed ? 'scale-150 my-16 mx-16' : 'max-h-[80vh] w-auto'
+              }`}
             />
           </div>
+
+          <p className="text-white/70 text-xs mt-3 select-none">
+            {isHindi ? '🔍 बड़ा/छोटा करने के लिए फोटो पर टैप करें' : '🔍 Tap image to zoom in / out'}
+          </p>
         </div>
       )}
     </div>

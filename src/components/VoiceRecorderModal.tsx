@@ -22,7 +22,7 @@ export default function VoiceRecorderModal({
   onSaved,
   onEditManually,
 }: VoiceRecorderModalProps) {
-  const { currentUser, language } = useApp();
+  const { currentUser, language, showToast } = useApp();
   const isHindi = language === 'hi';
 
   const [isRecording, setIsRecording] = useState(false);
@@ -90,6 +90,9 @@ export default function VoiceRecorderModal({
 
       recognition.onstart = () => {
         setIsRecording(true);
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try { navigator.vibrate([40, 30, 40]); } catch (e) {}
+        }
       };
 
       recognition.onresult = (event: any) => {
@@ -204,6 +207,7 @@ export default function VoiceRecorderModal({
         });
       } catch (e) {}
 
+      showToast(isHindi ? '✓ खर्च बोलकर दर्ज हो गया' : '✓ Voice expense recorded');
       onSaved(newExpense);
       onClose();
     } catch (error) {

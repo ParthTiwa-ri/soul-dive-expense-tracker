@@ -20,6 +20,8 @@ import {
   Edit3,
   Lock,
   Trash2,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import EditExpenseModal from '@/components/EditExpenseModal';
@@ -41,7 +43,7 @@ function getDateStringIST(offsetDays = 0): string {
 }
 
 export default function LedgerView({ expenses }: LedgerViewProps) {
-  const { language, currentUser, triggerSync } = useApp();
+  const { language, currentUser, triggerSync, showToast } = useApp();
   const isHindi = language === 'hi';
   const isOwner = currentUser.role === 'owner' || currentUser.role === 'super_admin';
   const isSuperAdmin = currentUser.role === 'super_admin';
@@ -65,6 +67,8 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
   // Selected expense for detail popup
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [zoomReceiptUrl, setZoomReceiptUrl] = useState<string | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
 
   React.useEffect(() => {
     setVisibleCount(50);
@@ -187,6 +191,36 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
   const verifiedCount = useMemo(() => {
     return filteredExpenses.filter((e) => e.verificationStatus === 'verified' && e.status !== 'voided').length;
   }, [filteredExpenses]);
+
+  // Date Timeline Grouping for Sticky Headers
+  const groupedExpenses = useMemo(() => {
+    const sliced = filteredExpenses.slice(0, visibleCount);
+    const groups: { date: string; label: string; totalPaise: number; items: Expense[] }[] = [];
+    const yesterdayIST = getDateStringIST(-1);
+
+    for (const exp of sliced) {
+      const existing = groups.find((g) => g.date === exp.paymentDate);
+      if (existing) {
+        existing.items.push(exp);
+        existing.totalPaise += exp.amountPaise;
+      } else {
+        let label = formatDateIST(exp.paymentDate, isHindi ? 'hi' : 'en');
+        if (exp.paymentDate === todayIST) {
+          label = isHindi ? 'आज (Today) • ' + label : 'Today • ' + label;
+        } else if (exp.paymentDate === yesterdayIST) {
+          label = isHindi ? 'कल (Yesterday) • ' + label : 'Yesterday • ' + label;
+        }
+
+        groups.push({
+          date: exp.paymentDate,
+          label,
+          totalPaise: exp.amountPaise,
+          items: [exp],
+        });
+      }
+    }
+    return groups;
+  }, [filteredExpenses, visibleCount, isHindi, todayIST]);
 
   // Handle Approve action
   const handleApprove = async (clientUuid: string) => {
@@ -463,70 +497,105 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
           </div>
         ) : (
           <>
-            {filteredExpenses.slice(0, visibleCount).map((item) => {
-              const isApproved = item.verificationStatus === 'verified';
-              const isSynced = item.syncStatus === 'synced';
-
-              return (
-                <div
-                  key={item.clientUuid}
-                  onClick={() => setSelectedExpense(item)}
-                  className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-cyan-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99]"
-                >
-                  {/* Left: Description, Date, Vendor, Category */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-sm text-slate-900 truncate">{item.description}</span>
-                      {item.hasReceipt && (
-                        <span className="p-1 rounded bg-cyan-100 text-cyan-800" title="Bill Receipt Attached">
-                          <Receipt className="w-3 h-3" />
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {formatDateIST(item.paymentDate, language)} • {item.paymentMethod.toUpperCase()}
-                      {item.vendorName ? ` • ${item.vendorName}` : ''}
-                    </p>
-
-                    <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-400">
-                      <span className="font-medium text-slate-600">{item.paidByName}</span>
-                      <span>•</span>
-                      <span className="text-cyan-700 font-semibold">
-                        {isHindi ? item.categoryNameHi || item.categoryName : item.categoryName}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Right: Amount, Approval Badge, Sync Status */}
-                  <div className="text-right flex flex-col items-end flex-shrink-0">
-                    <span className="text-base font-black text-slate-900 tracking-tight">
-                      {formatINR(item.amountPaise)}
-                    </span>
-
-                    {/* Prominent Approval Status Badge */}
-                    <div className="mt-1">
-                      {isApproved ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
-                          <CheckCircle className="w-3 h-3 text-emerald-600" />
-                          {isHindi ? 'मंजूर' : 'Approved'}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300">
-                          <Clock className="w-3 h-3 text-amber-600" />
-                          {isHindi ? 'मंजूरी बाकी' : 'Pending Approval'}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Cloud Sync Status */}
-                    <span className="text-[9px] text-slate-400 mt-0.5 font-medium">
-                      {isSynced ? (isHindi ? 'क्लाउड सिंक ✓' : 'Synced ✓') : (isHindi ? 'फोन में सेव' : 'Local Only')}
-                    </span>
-                  </div>
+            {groupedExpenses.map((group) => (
+              <div key={group.date} className="space-y-2.5">
+                {/* Sticky Date Timeline Header */}
+                <div className="sticky top-[64px] z-10 py-1.5 px-3.5 bg-slate-100/95 backdrop-blur-md rounded-xl border border-slate-200 flex items-center justify-between text-xs font-bold text-slate-800 shadow-xs">
+                  <span className="flex items-center gap-1.5">
+                    <span>{group.label}</span>
+                    <span className="text-[10px] text-slate-500 font-semibold">({group.items.length})</span>
+                  </span>
+                  <span className="text-cyan-900 font-black tracking-tight">{formatINR(group.totalPaise)}</span>
                 </div>
-              );
-            })}
+
+                {/* Grouped Transaction Cards */}
+                <div className="space-y-2">
+                  {group.items.map((item) => {
+                    const isApproved = item.verificationStatus === 'verified';
+                    const isSynced = item.syncStatus === 'synced';
+
+                    return (
+                      <div
+                        key={item.clientUuid}
+                        onClick={() => setSelectedExpense(item)}
+                        className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-cyan-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99]"
+                      >
+                        {/* Bill Photo Mini Thumbnail */}
+                        {item.hasReceipt && item.receiptDataUrl ? (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setZoomReceiptUrl(item.receiptDataUrl || null);
+                              setIsZoomed(false);
+                            }}
+                            className="w-11 h-11 rounded-xl overflow-hidden border border-cyan-200 flex-shrink-0 cursor-pointer shadow-xs hover:scale-105 transition-transform bg-slate-100"
+                            title={isHindi ? 'बिल फोटो बड़ा देखें' : 'Tap to zoom bill'}
+                          >
+                            <img
+                              src={item.receiptDataUrl}
+                              alt="Receipt"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : null}
+
+                        {/* Left: Description, Date, Vendor, Category */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-extrabold text-sm text-slate-900 truncate">{item.description}</span>
+                            {item.hasReceipt && !item.receiptDataUrl && (
+                              <span className="p-1 rounded bg-cyan-100 text-cyan-800" title="Bill Receipt Attached">
+                                <Receipt className="w-3 h-3" />
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-xs text-slate-600 mt-0.5 font-medium">
+                            {formatDateIST(item.paymentDate, language)} • {item.paymentMethod.toUpperCase()}
+                            {item.vendorName ? ` • ${item.vendorName}` : ''}
+                          </p>
+
+                          <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500">
+                            <span className="font-bold text-slate-700">{item.paidByName}</span>
+                            <span>•</span>
+                            <span className="text-cyan-800 font-extrabold">
+                              {isHindi ? item.categoryNameHi || item.categoryName : item.categoryName}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Right: Amount, Approval Badge, Sync Status */}
+                        <div className="text-right flex flex-col items-end flex-shrink-0">
+                          <span className="text-base font-black text-slate-900 tracking-tight">
+                            {formatINR(item.amountPaise)}
+                          </span>
+
+                          {/* Prominent Approval Status Badge */}
+                          <div className="mt-1">
+                            {isApproved ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                                <CheckCircle className="w-3 h-3 text-emerald-600" />
+                                {isHindi ? 'मंजूर' : 'Approved'}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300">
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                {isHindi ? 'मंजूरी बाकी' : 'Pending Approval'}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Cloud Sync Status */}
+                          <span className="text-[9px] text-slate-400 mt-0.5 font-medium">
+                            {isSynced ? (isHindi ? 'क्लाउड सिंक ✓' : 'Synced ✓') : (isHindi ? 'फोन में सेव' : 'Local Only')}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
 
             {/* Load More Pagination for Large Transaction Volumes */}
             {filteredExpenses.length > visibleCount && (
@@ -834,12 +903,23 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                   <span className="text-xs font-bold text-slate-600 block mb-2">
                     {isHindi ? 'बिल की प्रति:' : 'Bill Receipt:'}
                   </span>
-                  <div className="rounded-2xl overflow-hidden border border-slate-200 max-h-52 flex items-center justify-center bg-slate-100">
+                  <div
+                    onClick={() => {
+                      setZoomReceiptUrl(selectedExpense.receiptDataUrl || null);
+                      setIsZoomed(false);
+                    }}
+                    className="group relative rounded-2xl overflow-hidden border border-slate-200 max-h-52 flex items-center justify-center bg-slate-100 cursor-pointer hover:border-cyan-400 transition-colors"
+                    title={isHindi ? 'बड़ा देखने के लिए क्लिक करें' : 'Click to zoom'}
+                  >
                     <img
                       src={selectedExpense.receiptDataUrl}
                       alt="Bill receipt"
                       className="w-full h-full object-contain"
                     />
+                    <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5 backdrop-blur-[2px]">
+                      <ZoomIn className="w-4 h-4" />
+                      <span>{isHindi ? 'बड़ा देखें (Zoom)' : 'Zoom View'}</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -934,6 +1014,67 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
         expense={editingExpense}
         onClose={() => setEditingExpense(null)}
       />
+
+      {/* Fullscreen Tap-to-Zoom Receipt Modal */}
+      {zoomReceiptUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            setZoomReceiptUrl(null);
+            setIsZoomed(false);
+          }}
+        >
+          {/* Top Controls */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsZoomed(!isZoomed);
+              }}
+              className="px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition-all active:scale-95 flex items-center gap-1.5 text-xs font-bold"
+              title={isZoomed ? 'Zoom Out' : 'Zoom In'}
+            >
+              {isZoomed ? <ZoomOut className="w-4 h-4" /> : <ZoomIn className="w-4 h-4" />}
+              <span>{isZoomed ? (isHindi ? 'छोटा' : 'Zoom Out') : (isHindi ? 'बड़ा' : 'Zoom In')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setZoomReceiptUrl(null);
+                setIsZoomed(false);
+              }}
+              className="p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition-all active:scale-95"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Centered Image with Zoom Toggle */}
+          <div
+            className={`max-w-4xl max-h-[82vh] overflow-auto rounded-2xl flex items-center justify-center ${
+              isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsZoomed(!isZoomed);
+            }}
+          >
+            <img
+              src={zoomReceiptUrl}
+              alt="Receipt Preview"
+              className={`rounded-xl object-contain transition-transform duration-200 select-none shadow-2xl ${
+                isZoomed ? 'scale-150 my-16 mx-16' : 'max-h-[80vh] w-auto'
+              }`}
+            />
+          </div>
+
+          <p className="text-white/70 text-xs mt-3 select-none">
+            {isHindi ? '🔍 बड़ा/छोटा करने के लिए फोटो पर टैप करें' : '🔍 Tap image to zoom in / out'}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
