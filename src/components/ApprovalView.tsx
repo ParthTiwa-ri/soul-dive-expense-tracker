@@ -241,3 +241,4 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
     </div>
   );
 }
+

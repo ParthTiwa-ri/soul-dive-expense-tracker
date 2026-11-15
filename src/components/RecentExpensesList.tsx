@@ -130,28 +130,35 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
                 <span>• {expense.paymentMethod.toUpperCase()}</span>
               </div>
 
-              {/* Plain Hindi Sync Status Badge (PRD Section 23.5) */}
-              <div className="mt-2 flex items-center gap-1.5">
-                {isSynced ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    {isHindi ? 'सर्वर पर सुरक्षित' : 'Synced'}
-                  </span>
-                ) : isFailed ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800">
-                    <AlertTriangle className="w-3 h-3 text-rose-600" />
-                    {isHindi ? 'भेजने में समस्या — फोन में सुरक्षित' : 'Sync Failed — Saved Locally'}
+              {/* Status Badges: Approval Status & Cloud Sync */}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {/* Approval Status Badge */}
+                {expense.verificationStatus === 'verified' ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                    {isHindi ? 'मंजूर' : 'Approved'}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">
-                    <Clock className="w-3 h-3 text-amber-600" />
-                    {isHindi ? 'फोन में सेव हो गया (सिंक बाकी)' : 'Saved on Phone (Pending Sync)'}
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                    <Clock className="w-2.5 h-2.5 text-amber-600" />
+                    {isHindi ? 'मंजूरी बाकी' : 'Pending Approval'}
                   </span>
                 )}
 
+                {/* Cloud Sync Status */}
+                <span className="text-[10px] text-slate-400 font-medium ml-1">
+                  {isSynced ? (
+                    <span className="text-slate-400">क्लाउड सिंक ✓</span>
+                  ) : isFailed ? (
+                    <span className="text-rose-600 font-semibold">सिंक विफल</span>
+                  ) : (
+                    <span className="text-amber-600 font-semibold">फोन में सेव</span>
+                  )}
+                </span>
+
                 {isVoided && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
-                    {isHindi ? 'रद्द (Voided)' : 'Voided'}
+                    {isHindi ? 'रद्द' : 'Voided'}
                   </span>
                 )}
               </div>
