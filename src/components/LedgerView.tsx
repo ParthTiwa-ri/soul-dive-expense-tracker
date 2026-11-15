@@ -24,7 +24,7 @@ interface LedgerViewProps {
   expenses: Expense[];
 }
 
-type DatePreset = 'all' | 'today' | 'yesterday' | 'last7' | 'this_month' | 'last30' | 'custom';
+type DatePreset = 'all' | 'today' | 'this_month' | 'custom';
 
 // Helper to format date in YYYY-MM-DD for Asia/Kolkata timezone
 function getDateStringIST(offsetDays = 0): string {
@@ -44,7 +44,6 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
   const [datePreset, setDatePreset] = useState<DatePreset>('all');
   const [customStartDate, setCustomStartDate] = useState(getDateStringIST(-30));
   const [customEndDate, setCustomEndDate] = useState(getDateStringIST(0));
-  const [selectedApprovalStatus, setSelectedApprovalStatus] = useState<'all' | 'pending' | 'verified'>('all');
   const [selectedMethod, setSelectedMethod] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [onlyReceipts, setOnlyReceipts] = useState(false);
@@ -71,26 +70,21 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
 
   // Calculate Dates for presets
   const todayIST = getDateStringIST(0);
-  const yesterdayIST = getDateStringIST(-1);
-  const last7DaysIST = getDateStringIST(-7);
-  const last30DaysIST = getDateStringIST(-30);
   const currentMonthPrefix = todayIST.substring(0, 7); // YYYY-MM
 
   // Count active non-default filters
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (datePreset !== 'all') count++;
-    if (selectedApprovalStatus !== 'all') count++;
     if (selectedMethod !== 'all') count++;
     if (selectedCategory !== 'all') count++;
     if (onlyReceipts) count++;
     return count;
-  }, [datePreset, selectedApprovalStatus, selectedMethod, selectedCategory, onlyReceipts]);
+  }, [datePreset, selectedMethod, selectedCategory, onlyReceipts]);
 
   const resetAllFilters = () => {
     setSearchQuery('');
     setDatePreset('all');
-    setSelectedApprovalStatus('all');
     setSelectedMethod('all');
     setSelectedCategory('all');
     setOnlyReceipts(false);
@@ -114,30 +108,20 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
         // 2. Date Filter
         if (datePreset === 'today') {
           if (e.paymentDate !== todayIST) return false;
-        } else if (datePreset === 'yesterday') {
-          if (e.paymentDate !== yesterdayIST) return false;
-        } else if (datePreset === 'last7') {
-          if (e.paymentDate < last7DaysIST || e.paymentDate > todayIST) return false;
         } else if (datePreset === 'this_month') {
           if (!e.paymentDate.startsWith(currentMonthPrefix)) return false;
-        } else if (datePreset === 'last30') {
-          if (e.paymentDate < last30DaysIST || e.paymentDate > todayIST) return false;
         } else if (datePreset === 'custom') {
           if (customStartDate && e.paymentDate < customStartDate) return false;
           if (customEndDate && e.paymentDate > customEndDate) return false;
         }
 
-        // 3. Approval status filter
-        if (selectedApprovalStatus === 'verified' && e.verificationStatus !== 'verified') return false;
-        if (selectedApprovalStatus === 'pending' && e.verificationStatus !== 'pending') return false;
-
-        // 4. Payment method filter
+        // 3. Payment method filter
         if (selectedMethod !== 'all' && e.paymentMethod !== selectedMethod) return false;
 
-        // 5. Category filter
+        // 4. Category filter
         if (selectedCategory !== 'all' && e.categoryId !== selectedCategory) return false;
 
-        // 6. Receipt filter
+        // 5. Receipt filter
         if (onlyReceipts && !e.hasReceipt) return false;
 
         return true;
@@ -163,15 +147,11 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
     datePreset,
     customStartDate,
     customEndDate,
-    selectedApprovalStatus,
     selectedMethod,
     selectedCategory,
     onlyReceipts,
     sortBy,
     todayIST,
-    yesterdayIST,
-    last7DaysIST,
-    last30DaysIST,
     currentMonthPrefix,
   ]);
 
@@ -265,10 +245,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
   const datePresets: { id: DatePreset; labelEn: string; labelHi: string }[] = [
     { id: 'all', labelEn: 'All Time', labelHi: 'सभी समय' },
     { id: 'today', labelEn: 'Today', labelHi: 'आज' },
-    { id: 'yesterday', labelEn: 'Yesterday', labelHi: 'कल' },
-    { id: 'last7', labelEn: 'Last 7 Days', labelHi: 'पिछले ७ दिन' },
     { id: 'this_month', labelEn: 'This Month', labelHi: 'इस महीने' },
-    { id: 'last30', labelEn: 'Last 30 Days', labelHi: 'पिछले ३० दिन' },
     { id: 'custom', labelEn: 'Custom 📅', labelHi: 'कस्टम तारीख 📅' },
   ];
 
@@ -348,25 +325,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
             </span>
           )}
 
-          {selectedApprovalStatus !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200 animate-in fade-in">
-              <span>
-                {selectedApprovalStatus === 'verified'
-                  ? isHindi
-                    ? 'मंजूरशुदा'
-                    : 'Approved'
-                  : isHindi
-                  ? 'मंजूरी बाकी'
-                  : 'Pending Approval'}
-              </span>
-              <button
-                onClick={() => setSelectedApprovalStatus('all')}
-                className="hover:text-amber-950 ml-0.5"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )}
+
 
           {selectedMethod !== 'all' && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-200 text-slate-800 text-[11px] font-bold animate-in fade-in">
@@ -545,7 +504,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                   {isHindi ? 'तारीख का दायरा (Date Range)' : 'Date Range'}
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   {datePresets.map((preset) => {
                     const isSelected = datePreset === preset.id;
                     return (
@@ -594,32 +553,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                 )}
               </div>
 
-              {/* SECTION B: Approval Status */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                  {isHindi ? 'मंजूरी स्थिति (Approval Status)' : 'Approval Status'}
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: 'all' as const, labelHi: 'सभी (All)', labelEn: 'All' },
-                    { id: 'pending' as const, labelHi: '⏳ बाकी', labelEn: 'Pending' },
-                    { id: 'verified' as const, labelHi: '✓ मंजूर', labelEn: 'Approved' },
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setSelectedApprovalStatus(item.id)}
-                      className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
-                        selectedApprovalStatus === item.id
-                          ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
-                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      {isHindi ? item.labelHi : item.labelEn}
-                    </button>
-                  ))}
-                </div>
-              </div>
+
 
               {/* SECTION C: Payment Method */}
               <div>
