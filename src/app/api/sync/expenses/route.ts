@@ -203,8 +203,10 @@ export async function POST(req: NextRequest) {
         (existing.status || 'active') === (body.status || 'active') &&
         (existing.paymentMethod || 'cash') === (body.paymentMethod || 'cash') &&
         (existing.paymentDate || '') === (body.paymentDate || '') &&
+        (existing.paymentTime || '') === (body.paymentTime || '') &&
         (existing.categoryId || '') === (body.categoryId || '') &&
         (existing.vendorName || '') === (body.vendorName || '') &&
+        (existing.paidByUserId || '') === (body.paidByUserId || '') &&
         (existing.notes || '') === (body.notes || '') &&
         Boolean(existing.hasReceipt) === Boolean(body.hasReceipt) &&
         (existing.receiptDataUrl || '') === (body.receiptDataUrl || '');
@@ -233,6 +235,8 @@ export async function POST(req: NextRequest) {
         paymentMethod: body.paymentMethod || 'cash',
         paymentDate: body.paymentDate || existing.paymentDate,
         paymentTime: body.paymentTime,
+        paidByUserId: body.paidByUserId || existing.paidByUserId,
+        paidByName: body.paidByName || existing.paidByName,
         notes: body.notes,
         status: body.status || 'active',
         verificationStatus: body.verificationStatus || existing.verificationStatus,
