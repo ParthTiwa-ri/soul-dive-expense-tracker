@@ -77,6 +77,11 @@ export async function initializeLocalDatabase(): Promise<void> {
         expense.verifiedByName = 'Manu Shukla';
         changed = true;
       }
+      if (expense.paidByName === 'Manu Shukla' && expense.submittedByName !== 'Manu Shukla') {
+        expense.submittedByName = 'Manu Shukla';
+        expense.submittedByUserId = '22222222-2222-2222-2222-222222222222';
+        changed = true;
+      }
 
       // Auto-heal expenses recorded in the early morning (midnight to 5:30 AM IST)
       // where UTC lagging caused paymentDate to be stamped as yesterday

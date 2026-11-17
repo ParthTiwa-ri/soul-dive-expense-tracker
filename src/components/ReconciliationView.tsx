@@ -176,7 +176,7 @@ export default function ReconciliationView({ expenses, onRefresh }: Reconciliati
                 <div>
                   <span className="font-bold text-slate-900 block">{exp.description}</span>
                   <span className="text-slate-500">
-                    {exp.paidByName} • {formatINR(exp.amountPaise)} • {exp.paymentMethod.toUpperCase()}
+                    {exp.submittedByName || exp.paidByName} • {formatINR(exp.amountPaise)} • {exp.paymentMethod.toUpperCase()}
                   </span>
                 </div>
 

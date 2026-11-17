@@ -82,7 +82,7 @@ export default function EditExpenseModal({
       setVendorName(expense.vendorName || '');
       setPaymentMethod(expense.paymentMethod || 'cash');
       setPaymentDate(expense.paymentDate || getTodayIST());
-      setPaidByUserId(expense.paidByUserId || DEFAULT_PROFILES[0].id);
+      setPaidByUserId(expense.submittedByUserId || expense.paidByUserId || DEFAULT_PROFILES[0].id);
       setNotes(expense.notes || '');
       setReceiptPreview(expense.receiptDataUrl || null);
       setReceiptBlob(expense.receiptBlob || null);
@@ -160,6 +160,8 @@ export default function EditExpenseModal({
         paymentDate,
         paidByUserId: selectedPayer.id,
         paidByName: selectedPayer.fullName,
+        submittedByUserId: selectedPayer.id,
+        submittedByName: selectedPayer.fullName,
         notes: notes.trim() || undefined,
         hasReceipt,
         receiptDataUrl: receiptPreview || undefined,
@@ -403,10 +405,10 @@ export default function EditExpenseModal({
             </div>
           </div>
 
-          {/* 6. Payer Selector: Father vs Manu */}
+          {/* 6. Submitter Selector: Father vs Manu */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              {isHindi ? 'किसने भुगतान किया (Paid By)' : 'Paid By'}
+              {isHindi ? 'दर्जकर्ता (Submitted By)' : 'Submitted By'}
             </label>
             <div className="grid grid-cols-2 gap-2">
               {DEFAULT_PROFILES.map((profile) => {

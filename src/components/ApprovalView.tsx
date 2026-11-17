@@ -5,7 +5,7 @@ import { useApp } from '@/context/AppContext';
 import { Expense } from '@/types';
 import { formatINR, formatDateIST } from '@/lib/constants';
 import { db } from '@/lib/db';
-import { ShieldCheck, CheckCircle2, Clock, Receipt, Image as ImageIcon, Check, Edit3, Lock, Trash2, ZoomIn, ZoomOut, X } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Receipt, Check, Edit3, Trash2, ZoomIn, ZoomOut, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import EditExpenseModal from '@/components/EditExpenseModal';
 import { deleteRemoteExpense, broadcastExpenseChange } from '@/lib/syncEngine';
@@ -215,8 +215,6 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
           </div>
         ) : (
           displayList.map((expense) => {
-            const isVerified = expense.verificationStatus === 'verified';
-
             return (
               <div
                 key={expense.clientUuid}
@@ -282,75 +280,36 @@ export default function ApprovalView({ expenses }: ApprovalViewProps) {
                 )}
 
                 {/* Bottom Row: Verification & Correction Actions */}
-                <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100">
-                  <div className="flex items-center gap-1">
-                    {isVerified ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        {isHindi ? 'सत्यापित (Approved)' : 'Approved'}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
-                        <Clock className="w-3.5 h-3.5 text-amber-600" />
-                        {isHindi ? 'मंजूरी बाकी' : 'Pending Approval'}
-                      </span>
-                    )}
-                  </div>
+                <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                  {/* Correct / Edit Option */}
+                  <button
+                    type="button"
+                    onClick={() => setEditingExpense(expense)}
+                    className="py-1.5 px-3 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-slate-700" />
+                    <span>{isHindi ? 'सुधारें' : 'Correct'}</span>
+                  </button>
 
-                  <div className="flex items-center gap-2">
-                    {isVerified && !isSuperAdmin ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-                        <Lock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{isHindi ? 'लॉक्ड (परिवर्तन वर्जित)' : 'Locked'}</span>
-                      </span>
-                    ) : (
-                      <>
-                        {/* Correct / Edit Option */}
-                        <button
-                          type="button"
-                          onClick={() => setEditingExpense(expense)}
-                          className={`py-1.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all ${
-                            isSuperAdmin && isVerified
-                              ? 'bg-amber-400 hover:bg-amber-300 border-amber-500 text-slate-950 font-black'
-                              : 'border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          <Edit3 className="w-3.5 h-3.5 text-slate-700" />
-                          <span>
-                            {isSuperAdmin && isVerified
-                              ? isHindi
-                                ? '🔓 सुपर सुधार (Override)'
-                                : '🔓 Super Edit'
-                              : isHindi
-                              ? 'सुधारें'
-                              : 'Correct'}
-                          </span>
-                        </button>
+                  {/* Approve Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleApprove(expense.clientUuid)}
+                    className="py-1.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                  >
+                    <Check className="w-4 h-4 stroke-[3px]" />
+                    <span>{isHindi ? 'मंजूर करें' : 'Approve'}</span>
+                  </button>
 
-                        {!isVerified && (
-                          <button
-                            type="button"
-                            onClick={() => handleApprove(expense.clientUuid)}
-                            className="py-1.5 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-                          >
-                            <Check className="w-4 h-4 stroke-[3px]" />
-                            <span>{isHindi ? 'मंजूर करें' : 'Approve'}</span>
-                          </button>
-                        )}
-
-                        {(!isVerified || isSuperAdmin) && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteExpense(expense.clientUuid, isVerified)}
-                            className="p-1.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors active:scale-95"
-                            title={isHindi ? 'डिलीट करें' : 'Delete'}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
+                  {/* Delete Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteExpense(expense.clientUuid, false)}
+                    className="p-1.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors active:scale-95"
+                    title={isHindi ? 'डिलीट करें' : 'Delete'}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             );

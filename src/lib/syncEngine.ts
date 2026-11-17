@@ -277,22 +277,18 @@ export async function pullRemoteExpenses(): Promise<number> {
     }
 
     // 2. Reconcile Deletions:
-    // Only reconcile deletions if response is explicitly confirmed from Supabase
-    // to prevent accidental local data loss during serverless cold starts or offline memory fallbacks.
+    // When response is explicitly confirmed from Supabase, any local record marked 'synced'
+    // that no longer exists in Supabase was deleted remotely, so delete it locally.
+    // Unsynced offline drafts ('pending' or 'failed') are strictly preserved and never touched.
     if (data.source === 'supabase') {
       const localSyncedExpenses = await db.expenses
         .filter((e) => e.syncStatus === 'synced')
         .toArray();
 
-      // Guard against glitch wipes: only reconcile if remote has records OR local was already empty
-      const shouldReconcile = remoteRecords.length > 0 || localSyncedExpenses.length === 0;
-
-      if (shouldReconcile) {
-        for (const localExp of localSyncedExpenses) {
-          if (!remoteClientUuids.has(localExp.clientUuid)) {
-            await db.expenses.delete(localExp.clientUuid);
-            pulledCount++;
-          }
+      for (const localExp of localSyncedExpenses) {
+        if (!remoteClientUuids.has(localExp.clientUuid)) {
+          await db.expenses.delete(localExp.clientUuid);
+          pulledCount++;
         }
       }
     }
@@ -494,6 +490,8 @@ export async function applyRemoteRealtimeEvent(
         paymentTime: row.payment_time || row.paymentTime || existing.paymentTime,
         paidByUserId: row.paid_by_user_id || row.paidByUserId || existing.paidByUserId,
         paidByName: row.paid_by_name || row.paidByName || existing.paidByName,
+        submittedByUserId: row.submitted_by_user_id || row.submittedByUserId || existing.submittedByUserId,
+        submittedByName: row.submitted_by_name || row.submittedByName || existing.submittedByName,
         notes: row.notes !== undefined ? row.notes : existing.notes,
         status: row.status || existing.status,
         verificationStatus: row.verification_status || row.verificationStatus || existing.verificationStatus,

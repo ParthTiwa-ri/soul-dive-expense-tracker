@@ -29,6 +29,7 @@ export const SUPER_ADMIN_PROFILE: UserProfile = {
 };
 
 export const SUPER_ADMIN_SECRET_PIN = '573776';
+export const MANU_PROFILE_PIN = '4231';
 
 export const DEFAULT_PHASES: ProjectPhase[] = [
   {

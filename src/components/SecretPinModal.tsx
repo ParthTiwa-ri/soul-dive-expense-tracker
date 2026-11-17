@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '@/context/AppContext';
 import { ShieldCheck, Delete, X, Lock } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -15,9 +16,14 @@ export default function SecretPinModal({ isOpen, onClose, onSuccess }: SecretPin
   const { unlockSuperAdmin, language } = useApp();
   const isHindi = language === 'hi';
 
+  const [mounted, setMounted] = useState(false);
   const [pin, setPin] = useState<string>('');
   const [isError, setIsError] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Reset state when opened
   useEffect(() => {
@@ -86,12 +92,15 @@ export default function SecretPinModal({ isOpen, onClose, onSuccess }: SecretPin
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, handleDigit, handleBackspace, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
+      {/* Click backdrop to close */}
+      <div className="fixed inset-0" onClick={onClose} />
+
       <div
-        className={`w-full max-w-xs bg-slate-900 border border-cyan-500/40 rounded-3xl p-6 text-white shadow-2xl shadow-cyan-950/80 flex flex-col items-center transition-transform ${
+        className={`relative z-10 w-full max-w-xs bg-slate-900 border border-cyan-500/40 rounded-3xl p-6 text-white shadow-2xl shadow-cyan-950/80 flex flex-col items-center transition-transform ${
           isError ? 'animate-shake' : ''
         }`}
       >
@@ -173,7 +182,8 @@ export default function SecretPinModal({ isOpen, onClose, onSuccess }: SecretPin
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -23,6 +23,8 @@ import {
   ZoomIn,
   ZoomOut,
   AlertTriangle,
+  FileText,
+  FileSpreadsheet,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import EditExpenseModal from '@/components/EditExpenseModal';
@@ -42,6 +44,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSubmitter, setSelectedSubmitter] = useState<'all' | 'krishna' | 'manu'>('all');
   const [datePreset, setDatePreset] = useState<DatePreset>('all');
   const [customStartDate, setCustomStartDate] = useState(getDateStringIST(-30));
   const [customEndDate, setCustomEndDate] = useState(getDateStringIST(0));
@@ -52,6 +55,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
 
   // Bottom Sheet Filter Modal State
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
   // Progressive batching for high volume (render 50 at a time for 60fps scrolling)
   const [visibleCount, setVisibleCount] = useState<number>(50);
@@ -64,7 +68,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
 
   React.useEffect(() => {
     setVisibleCount(50);
-  }, [searchQuery, datePreset, customStartDate, customEndDate, selectedMethod, selectedCategory, onlyReceipts, sortBy]);
+  }, [searchQuery, selectedSubmitter, datePreset, customStartDate, customEndDate, selectedMethod, selectedCategory, onlyReceipts, sortBy]);
 
   // Categories list
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
@@ -86,15 +90,17 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
   // Count active non-default filters
   const activeFiltersCount = useMemo(() => {
     let count = 0;
+    if (selectedSubmitter !== 'all') count++;
     if (datePreset !== 'all') count++;
     if (selectedMethod !== 'all') count++;
     if (selectedCategory !== 'all') count++;
     if (onlyReceipts) count++;
     return count;
-  }, [datePreset, selectedMethod, selectedCategory, onlyReceipts]);
+  }, [selectedSubmitter, datePreset, selectedMethod, selectedCategory, onlyReceipts]);
 
   const resetAllFilters = () => {
     setSearchQuery('');
+    setSelectedSubmitter('all');
     setDatePreset('all');
     setSelectedMethod('all');
     setSelectedCategory('all');
@@ -115,11 +121,29 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
           const matchDesc = e.description.toLowerCase().includes(q);
           const matchVendor = e.vendorName?.toLowerCase().includes(q);
           const matchPayer = e.paidByName.toLowerCase().includes(q);
+          const matchSubmitter = (e.submittedByName || '').toLowerCase().includes(q);
           const matchCat = (e.categoryNameHi || e.categoryName || '').toLowerCase().includes(q);
-          if (!matchDesc && !matchVendor && !matchPayer && !matchCat) return false;
+          if (!matchDesc && !matchVendor && !matchPayer && !matchSubmitter && !matchCat) return false;
         }
 
-        // 2. Date Filter
+        // 2. Submitter Filter (Manu Shukla vs कृष्ण मुरारी तिवारी)
+        if (selectedSubmitter === 'krishna') {
+          const isKrishna =
+            e.submittedByUserId === '11111111-1111-1111-1111-111111111111' ||
+            e.paidByUserId === '11111111-1111-1111-1111-111111111111' ||
+            /कृष्ण|krishna|murari|tiwari/i.test(e.submittedByName || '') ||
+            /कृष्ण|krishna|murari|tiwari/i.test(e.paidByName || '');
+          if (!isKrishna) return false;
+        } else if (selectedSubmitter === 'manu') {
+          const isManu =
+            e.submittedByUserId === '22222222-2222-2222-2222-222222222222' ||
+            e.paidByUserId === '22222222-2222-2222-2222-222222222222' ||
+            /manu|shukla/i.test(e.submittedByName || '') ||
+            /manu|shukla/i.test(e.paidByName || '');
+          if (!isManu) return false;
+        }
+
+        // 3. Date Filter
         if (datePreset === 'today') {
           if (e.paymentDate !== todayIST) return false;
         } else if (datePreset === 'this_month') {
@@ -158,6 +182,7 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
   }, [
     expenses,
     searchQuery,
+    selectedSubmitter,
     datePreset,
     customStartDate,
     customEndDate,
@@ -279,6 +304,18 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
     }
   };
 
+  // Helper to format date as DD/MM/YY for CSV & PDF exports
+  const formatExportDate = (dateStr: string): string => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const [y, m, d] = parts;
+      const yy = y.length === 4 ? y.slice(2) : y;
+      return `${d}/${m}/${yy}`;
+    }
+    return dateStr;
+  };
+
   // Export to CSV
   const handleExportCSV = () => {
     if (filteredExpenses.length === 0) {
@@ -289,40 +326,294 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
     const headers = [
       'Date',
       'Description',
-      'Category',
       'Vendor',
       'Amount (INR)',
       'Payment Method',
-      'Paid By',
       'Submitted By',
-      'Approval Status',
-      'Sync Status',
       'Has Receipt',
     ];
 
     const rows = filteredExpenses.map((e) => [
-      e.paymentDate,
+      formatExportDate(e.paymentDate),
       `"${e.description.replace(/"/g, '""')}"`,
-      `"${e.categoryNameHi || e.categoryName || ''}"`,
       `"${(e.vendorName || '').replace(/"/g, '""')}"`,
       (e.amountPaise / 100).toFixed(2),
       e.paymentMethod,
-      `"${e.paidByName}"`,
-      `"${e.submittedByName}"`,
-      e.verificationStatus === 'verified' ? 'Approved' : 'Pending Approval',
-      e.syncStatus,
+      `"${e.submittedByName || e.paidByName}"`,
       e.hasReceipt ? 'Yes' : 'No',
     ]);
 
     const csvContent =
-      'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+      'data:text/csv;charset=utf-8,\uFEFF' +
+      encodeURIComponent([headers.join(','), ...rows.map((r) => r.join(','))].join('\n'));
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', csvContent);
     link.setAttribute('download', `SoulDive_Expenses_${getTodayIST()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Export to PDF (A4 Printable Ledger Statement)
+  const handleExportPDF = () => {
+    if (filteredExpenses.length === 0) {
+      alert(isHindi ? 'निर्यात करने के लिए कोई रिकॉर्ड नहीं है।' : 'No records to export.');
+      return;
+    }
+
+    const totalINR = (totalAmountPaise / 100).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    const activeFilterDesc: string[] = [];
+    if (selectedSubmitter === 'krishna') {
+      activeFilterDesc.push(isHindi ? 'दर्जकर्ता: कृष्ण मुरारी तिवारी' : 'Submitted By: Krishn Murari Tiwari');
+    } else if (selectedSubmitter === 'manu') {
+      activeFilterDesc.push('Submitted By: Manu Shukla');
+    }
+
+    if (activeDateLabel) {
+      activeFilterDesc.push(`${isHindi ? 'तारीख' : 'Date'}: ${activeDateLabel}`);
+    }
+
+    if (selectedMethod !== 'all') {
+      activeFilterDesc.push(`${isHindi ? 'माध्यम' : 'Method'}: ${selectedMethod.toUpperCase()}`);
+    }
+
+    const filterText =
+      activeFilterDesc.length > 0
+        ? activeFilterDesc.join(' • ')
+        : isHindi
+        ? 'सभी रिकॉर्ड (All Records)'
+        : 'All Records';
+
+    const printHtml = `<!DOCTYPE html>
+<html lang="${language}">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Soul Dive Water Park — Expense Statement</title>
+    <style>
+      @page {
+        size: A4 portrait;
+        margin: 12mm 15mm;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif;
+        color: #0f172a;
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .header {
+        border-bottom: 2px solid #0891b2;
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+      .brand h1 {
+        margin: 0;
+        font-size: 22px;
+        color: #083344;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+      }
+      .brand p {
+        margin: 3px 0 0;
+        font-size: 12px;
+        color: #0891b2;
+        font-weight: 600;
+      }
+      .meta {
+        text-align: right;
+        font-size: 11px;
+        color: #64748b;
+        line-height: 1.5;
+      }
+      .meta strong {
+        color: #0f172a;
+      }
+      .summary-box {
+        background: #f0fdfa;
+        border: 1px solid #ccfbf1;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .summary-item .label {
+        font-size: 10px;
+        color: #0d9488;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .summary-item .val {
+        font-size: 20px;
+        font-weight: 900;
+        color: #134e4a;
+      }
+      .summary-filter {
+        font-size: 11px;
+        color: #0f766e;
+        font-weight: 600;
+        text-align: right;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+      th {
+        background: #083344;
+        color: #ffffff;
+        font-weight: 700;
+        text-align: left;
+        padding: 8px 10px;
+        border: 1px solid #083344;
+      }
+      th.num, td.num {
+        text-align: right;
+      }
+      th.center, td.center {
+        text-align: center;
+      }
+      td {
+        padding: 7px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #1e293b;
+      }
+      tr:nth-child(even) td {
+        background-color: #f8fafc;
+      }
+      .total-row td {
+        background-color: #f1f5f9;
+        font-weight: 800;
+        font-size: 12px;
+        border-top: 2px solid #0891b2;
+        border-bottom: 2px solid #0891b2;
+        color: #0f172a;
+      }
+      .footer {
+        margin-top: 32px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        font-size: 10px;
+        color: #94a3b8;
+        page-break-inside: avoid;
+      }
+      .sig-line {
+        border-top: 1px solid #94a3b8;
+        width: 180px;
+        text-align: center;
+        padding-top: 6px;
+        font-size: 10px;
+        color: #475569;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="brand">
+        <h1>Soul Dive Water Park</h1>
+        <p>${isHindi ? 'खर्च लेजर विवरण (Expense Statement)' : 'Expense Ledger Statement'}</p>
+      </div>
+      <div class="meta">
+        <div><strong>${isHindi ? 'दिनांक' : 'Date'}:</strong> ${formatExportDate(getTodayIST())}</div>
+        <div><strong>${isHindi ? 'कुल प्रविष्टियां' : 'Total Entries'}:</strong> ${filteredExpenses.length}</div>
+      </div>
+    </div>
+
+    <div class="summary-box">
+      <div class="summary-item">
+        <div class="label">${isHindi ? 'कुल खर्च (Total Spend)' : 'Total Spend'}</div>
+        <div class="val">₹${totalINR}</div>
+      </div>
+      <div class="summary-filter">
+        ${filterText}
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 32px;" class="center">#</th>
+          <th style="width: 80px;">${isHindi ? 'तारीख' : 'Date'}</th>
+          <th>${isHindi ? 'विवरण' : 'Description'}</th>
+          <th>${isHindi ? 'वेंडर' : 'Vendor'}</th>
+          <th class="center" style="width: 65px;">${isHindi ? 'माध्यम' : 'Method'}</th>
+          <th style="width: 110px;">${isHindi ? 'दर्जकर्ता' : 'Submitted By'}</th>
+          <th class="num" style="width: 90px;">${isHindi ? 'रकम (₹)' : 'Amount (₹)'}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filteredExpenses
+          .map(
+            (e, idx) => `
+          <tr>
+            <td class="center">${idx + 1}</td>
+            <td>${formatExportDate(e.paymentDate)}</td>
+            <td style="font-weight: 600;">${e.description}</td>
+            <td>${e.vendorName || '—'}</td>
+            <td class="center" style="text-transform: uppercase; font-size: 10px;">${e.paymentMethod}</td>
+            <td>${e.submittedByName || e.paidByName}</td>
+            <td class="num" style="font-weight: 700;">₹${(e.amountPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+          </tr>
+        `
+          )
+          .join('')}
+        <tr class="total-row">
+          <td colspan="6" style="text-align: right; padding-right: 14px;">${isHindi ? 'कुल योग (Grand Total):' : 'Grand Total:'}</td>
+          <td class="num">₹${totalINR}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer">
+      <div>
+        Soul Dive Water Park Ledger • Generated on ${formatExportDate(getTodayIST())}
+      </div>
+      <div class="sig-line">
+        ${isHindi ? 'हस्ताक्षर / अधिकृत मुहर' : 'Authorized Signature'}
+      </div>
+    </div>
+  </body>
+</html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(printHtml);
+      doc.close();
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1500);
+      }, 300);
+    }
   };
 
   const datePresets: { id: DatePreset; labelEn: string; labelHi: string }[] = [
@@ -381,20 +672,77 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
           )}
         </button>
 
-        {/* Export CSV Button */}
-        <button
-          onClick={handleExportCSV}
-          className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm active:scale-95"
-          title="Export CSV"
-        >
-          <Download className="w-4 h-4 text-cyan-400" />
-          <span className="hidden sm:inline">{isHindi ? 'एक्सपोर्ट' : 'Export'}</span>
-        </button>
+        {/* Export Dropdown (PDF Statement & CSV Excel) */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setIsExportMenuOpen((prev) => !prev)}
+            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm active:scale-95"
+            title="Export"
+          >
+            <Download className="w-4 h-4 text-cyan-400" />
+            <span className="hidden sm:inline">{isHindi ? 'एक्सपोर्ट' : 'Export'}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {isExportMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setIsExportMenuOpen(false)} />
+              <div className="absolute right-0 top-full mt-1.5 w-48 bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700/80 p-1.5 z-40 animate-in fade-in zoom-in-95 duration-100 space-y-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExportMenuOpen(false);
+                    handleExportPDF();
+                  }}
+                  className="w-full px-3 py-2.5 rounded-xl hover:bg-slate-800 text-left text-xs font-bold flex items-center gap-2.5 text-slate-100 transition-colors active:scale-98"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="leading-tight text-white font-bold">{isHindi ? 'PDF स्टेटमेंट' : 'PDF Statement'}</p>
+                    <p className="text-[10px] text-slate-400 font-normal">{isHindi ? 'A4 प्रिंट / शेयर' : 'A4 Print / Share'}</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExportMenuOpen(false);
+                    handleExportCSV();
+                  }}
+                  className="w-full px-3 py-2.5 rounded-xl hover:bg-slate-800 text-left text-xs font-bold flex items-center gap-2.5 text-slate-100 transition-colors active:scale-98"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="leading-tight text-white font-bold">{isHindi ? 'Excel / CSV फ़ाइल' : 'Excel / CSV File'}</p>
+                    <p className="text-[10px] text-slate-400 font-normal">{isHindi ? 'स्प्रेडशीट डेटा' : 'Spreadsheet data'}</p>
+                  </div>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 2. Active Filter Pills (Shown only when active filters exist) */}
       {(activeFiltersCount > 0 || searchQuery) && (
         <div className="flex flex-wrap items-center gap-1.5 px-1">
+          {selectedSubmitter !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-900 text-[11px] font-bold border border-cyan-200 animate-in fade-in">
+              <span>👤 {selectedSubmitter === 'krishna' ? 'कृष्ण मुरारी तिवारी' : 'Manu Shukla'}</span>
+              <button
+                onClick={() => setSelectedSubmitter('all')}
+                className="hover:text-cyan-950 ml-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
           {activeDateLabel && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-900 text-[11px] font-bold border border-cyan-200 animate-in fade-in">
               <Calendar className="w-3 h-3 text-cyan-700" />
@@ -549,7 +897,9 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                             <span className="uppercase">{item.paymentMethod}</span>
                             <span> • </span>
                             <span className="text-slate-700 font-medium">
-                              {item.vendorName ? `${item.paidByName} (${item.vendorName})` : item.paidByName}
+                              {item.vendorName
+                                ? `${item.submittedByName || item.paidByName} (${item.vendorName})`
+                                : (item.submittedByName || item.paidByName)}
                             </span>
                           </p>
                         </div>
@@ -715,7 +1065,32 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                 )}
               </div>
 
-
+              {/* SECTION B: Submitter Filter (Who Submitted) */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  {isHindi ? 'दर्जकर्ता (Submitted By)' : 'Who Submitted'}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'all' as const, label: isHindi ? 'सभी' : 'All' },
+                    { id: 'krishna' as const, label: 'कृष्ण मुरारी' },
+                    { id: 'manu' as const, label: 'Manu Shukla' },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSelectedSubmitter(s.id)}
+                      className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                        selectedSubmitter === s.id
+                          ? 'bg-cyan-700 text-white border-cyan-700 shadow-sm'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* SECTION C: Payment Method */}
               <div>
@@ -854,6 +1229,12 @@ export default function LedgerView({ expenses }: LedgerViewProps) {
                 <div className="flex justify-between py-1 border-b border-slate-200">
                   <span className="text-slate-500">{isHindi ? 'विवरण (Purpose):' : 'Purpose:'}</span>
                   <span className="font-bold text-slate-900">{selectedExpense.description}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-200">
+                  <span className="text-slate-500">{isHindi ? 'दर्जकर्ता (Submitted By):' : 'Submitted By:'}</span>
+                  <span className="font-bold text-cyan-800">
+                    {selectedExpense.submittedByName || selectedExpense.paidByName}
+                  </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-200">
                   <span className="text-slate-500">{isHindi ? 'श्रेणी (Category):' : 'Category:'}</span>

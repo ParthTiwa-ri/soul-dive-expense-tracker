@@ -233,7 +233,7 @@ export default function RecentExpensesList({ expenses, onRefresh }: RecentExpens
               </div>
 
               <span className="block text-[10px] font-medium text-slate-400 truncate max-w-[100px] mt-0.5">
-                {expense.paidByName || 'Self'}
+                {expense.submittedByName || expense.paidByName || 'Self'}
               </span>
             </div>
           </div>

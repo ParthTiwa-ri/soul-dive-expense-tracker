@@ -90,6 +90,67 @@ describe('Hindi Voice Parser & Natural Language Extractor', () => {
     expect(result.vendorName).toBe('mazdoor');
     expect(result.categoryId).toBe('cat-labour');
   });
+
+  it('should parse transcript with suffix item: "स्कूटी के लिए ₹300 का पेट्रोल"', () => {
+    const transcript = 'स्कूटी के लिए ₹300 का पेट्रोल';
+    const result = parseVoiceTranscript(transcript);
+
+    expect(result.amountRupees).toBe(300);
+    expect(result.amountPaise).toBe(30000);
+    expect(result.description).toBe('स्कूटी के लिए पेट्रोल');
+    expect(result.categoryId).toBe('cat-fuel');
+    expect(result.categoryName).toBe('डीजल और गाड़ी खर्च');
+    expect(result.paymentMethod).toBe('cash');
+  });
+
+  describe('Apple iOS Speech Recognition Normalizer (Safe for Android)', () => {
+    it('should heal Screenshot 1: "das000 रुपए ऑटो के लिए दिए लेकिन" to 10000 and cat-transport', () => {
+      const transcript = 'das000 रुपए ऑटो के लिए दिए लेकिन';
+      const result = parseVoiceTranscript(transcript);
+
+      expect(result.amountRupees).toBe(10000);
+      expect(result.amountPaise).toBe(1000000);
+      expect(result.description).toBe('ऑटो के लिए');
+      expect(result.categoryId).toBe('cat-transport');
+      expect(result.categoryName).toBe('ट्रांसपोर्ट और भाड़ा');
+    });
+
+    it('should heal Screenshot 2: "ऑटो भरा Paanch000 रुपए आई" to 5000 and cat-transport', () => {
+      const transcript = 'ऑटो भरा Paanch000 रुपए आई';
+      const result = parseVoiceTranscript(transcript);
+
+      expect(result.amountRupees).toBe(5000);
+      expect(result.amountPaise).toBe(500000);
+      expect(result.categoryId).toBe('cat-transport');
+    });
+
+    it('should heal Apple "do00" / "Do00" to 200 rupees', () => {
+      const transcript = 'do00 rupaye auto ke liye';
+      const result = parseVoiceTranscript(transcript);
+
+      expect(result.amountRupees).toBe(200);
+      expect(result.amountPaise).toBe(20000);
+      expect(result.categoryId).toBe('cat-transport');
+    });
+
+    it('should heal teen000 (3000), char000 (4000), bees000 (20000)', () => {
+      expect(extractAmount('teen000 rupaye')).toBe(3000);
+      expect(extractAmount('char000 rupaye')).toBe(4000);
+      expect(extractAmount('bees000 rupaye')).toBe(20000);
+      expect(extractAmount('pachas000 rupaye')).toBe(50000);
+    });
+
+    it('should preserve standard Android speech without any alteration', () => {
+      const android1 = parseVoiceTranscript('₹5000 सीमेंट के लिए दिए');
+      expect(android1.amountRupees).toBe(5000);
+      expect(android1.description).toBe('सीमेंट');
+
+      const android2 = parseVoiceTranscript('मजदूर को सामान लाने के लिए ₹400 दिए');
+      expect(android2.amountRupees).toBe(400);
+      expect(android2.description).toBe('सामान लाने के लिए');
+      expect(android2.vendorName).toBe('मजदूर');
+    });
+  });
 });
 
 describe('Indian Currency Formatting (Paise to INR)', () => {

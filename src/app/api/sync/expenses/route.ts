@@ -121,6 +121,7 @@ export async function POST(req: NextRequest) {
             (existing.category_id || '') === (body.categoryId || '') &&
             (existing.vendor_name || '') === (body.vendorName || '') &&
             (existing.paid_by_user_id || '') === (body.paidByUserId || '') &&
+            (existing.submitted_by_user_id || '') === (body.submittedByUserId || '') &&
             (existing.notes || '') === (body.notes || '') &&
             Boolean(existing.has_receipt) === Boolean(body.hasReceipt) &&
             (existing.receipt_data_url || '') === (body.receiptDataUrl || '');
@@ -238,6 +239,8 @@ export async function POST(req: NextRequest) {
         paymentTime: body.paymentTime,
         paidByUserId: body.paidByUserId || existing.paidByUserId,
         paidByName: body.paidByName || existing.paidByName,
+        submittedByUserId: body.submittedByUserId || existing.submittedByUserId,
+        submittedByName: body.submittedByName || existing.submittedByName,
         notes: body.notes,
         status: body.status || 'active',
         verificationStatus: body.verificationStatus || existing.verificationStatus,

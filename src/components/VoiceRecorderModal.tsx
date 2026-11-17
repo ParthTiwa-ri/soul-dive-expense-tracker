@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
-import { parseVoiceTranscript } from '@/lib/voiceParser';
+import { parseVoiceTranscript, normalizeVoiceTranscript } from '@/lib/voiceParser';
 import { ParsedVoiceResult, Expense } from '@/types';
 import { db } from '@/lib/db';
 import { formatINR, getTodayIST } from '@/lib/constants';
@@ -100,12 +100,16 @@ export default function VoiceRecorderModal({
         for (let i = 0; i < event.results.length; i++) {
           currentTranscript += event.results[i][0].transcript;
         }
-        setTranscript(currentTranscript);
+
+        // Auto-heal Apple iOS hybrid speech tokens (e.g. Paanch000 -> 5000, das000 -> 10000, do00 -> 200)
+        // Completely safe and non-interfering for Android
+        const displayTranscript = normalizeVoiceTranscript(currentTranscript);
+        setTranscript(displayTranscript);
 
         // Intelligently parse in real-time
-        const parsed = parseVoiceTranscript(currentTranscript);
+        const parsed = parseVoiceTranscript(displayTranscript);
         if (process.env.NODE_ENV !== 'production') {
-          console.log('[VoiceParser] Transcript:', currentTranscript, '=> Parsed:', parsed);
+          console.log('[VoiceParser] Transcript:', displayTranscript, '=> Parsed:', parsed);
         }
         setParsedResult(parsed);
       };

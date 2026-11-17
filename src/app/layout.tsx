@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   title: 'Soul Dive खर्चा | Water Park Expense Manager',
   description: 'Production-minded, offline-first, mobile-first expense manager for Soul Dive Water Park.',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/icons/apple-touch-icon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -29,7 +33,8 @@ export default function RootLayout({
   return (
     <html lang="hi">
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon.svg" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
       </head>
       <body className="antialiased min-h-screen bg-slate-100 text-slate-900 selection:bg-cyan-200">
         <AppProvider>{children}</AppProvider>

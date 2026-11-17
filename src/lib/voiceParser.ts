@@ -4,28 +4,78 @@ import { getDateStringIST, getTodayIST } from './constants';
 // Map of Hindi number words to their numeric values
 const HINDI_NUMBERS: Record<string, number> = {
   'शून्य': 0, 'जीरो': 0,
-  'एक': 1, 'वन': 1,
-  'दो': 2, 'टू': 2,
-  'तीन': 3, 'थ्री': 3,
-  'चार': 4, 'फोर': 4,
-  'पांच': 5, 'पाँच': 5, 'फाइव': 5,
-  'छह': 6, 'छः': 6, 'सिक्स': 6,
-  'सात': 7, 'सेवन': 7,
-  'आठ': 8, 'एट': 8,
-  'नौ': 9, 'नाइन': 9,
-  'दस': 10, 'टेन': 10,
+  'एक': 1, 'वन': 1, 'ek': 1, 'one': 1,
+  'दो': 2, 'टू': 2, 'do': 2, 'two': 2,
+  'तीन': 3, 'थ्री': 3, 'teen': 3, 'three': 3,
+  'चार': 4, 'फोर': 4, 'char': 4, 'chaar': 4, 'four': 4,
+  'पांच': 5, 'पाँच': 5, 'फाइव': 5, 'paanch': 5, 'panch': 5, 'five': 5,
+  'छह': 6, 'छः': 6, 'सिक्स': 6, 'chhe': 6, 'six': 6,
+  'सात': 7, 'सेवन': 7, 'saat': 7, 'seven': 7,
+  'आठ': 8, 'एट': 8, 'aath': 8, 'eight': 8,
+  'नौ': 9, 'नाइन': 9, 'nau': 9, 'nine': 9,
+  'दस': 10, 'टेन': 10, 'das': 10, 'dus': 10, 'ten': 10,
   'ग्यारह': 11, 'बारह': 12, 'तेरह': 13, 'चौदह': 14, 'पंद्रह': 15,
-  'सोलह': 16, 'सत्रह': 17, 'अठारह': 18, 'उन्नीस': 19, 'बीस': 20,
+  'सोलह': 16, 'सत्रह': 17, 'अठारह': 18, 'उन्नीस': 19, 'बीस': 20, 'bees': 20,
   'पच्चीस': 25, 'तीस': 30, 'पैंतीस': 35, 'चालीस': 40, 'पैंतालीस': 45,
-  'पचास': 50, 'साठ': 60, 'सत्तर': 70, 'अस्सी': 80, 'नब्बे': 90,
+  'पचास': 50, 'pachas': 50, 'साठ': 60, 'सत्तर': 70, 'अस्सी': 80, 'नब्बे': 90,
 };
 
 const MULTIPLIERS: Record<string, number> = {
-  'सौ': 100, 'हंड्रेड': 100, 'hundred': 100,
-  'हजार': 1000, 'हज़ार': 1000, 'थाउजेंड': 1000, 'thousand': 1000, 'k': 1000,
+  'सौ': 100, 'हंड्रेड': 100, 'hundred': 100, 'sau': 100,
+  'हजार': 1000, 'हज़ार': 1000, 'थाउजेंड': 1000, 'thousand': 1000, 'k': 1000, 'hazar': 1000,
   'लाख': 100000, 'lakh': 100000, 'lac': 100000,
   'करोड़': 10000000, 'crore': 10000000,
 };
+
+// Word to number mapping used for Apple iOS STT hybrid numbers (e.g. Paanch000 -> 5000, das000 -> 10000, do00 -> 200)
+export const HINDI_WORD_TO_DIGIT: Record<string, number> = {
+  'ek': 1, 'one': 1, 'एक': 1,
+  'do': 2, 'two': 2, 'दो': 2,
+  'teen': 3, 'three': 3, 'तीन': 3,
+  'char': 4, 'chaar': 4, 'four': 4, 'चार': 4,
+  'paanch': 5, 'panch': 5, 'five': 5, 'पांच': 5, 'पाँच': 5,
+  'chhe': 6, 'chheh': 6, 'six': 6, 'छह': 6, 'छः': 6,
+  'saat': 7, 'seven': 7, 'सात': 7,
+  'aath': 8, 'eight': 8, 'आठ': 8,
+  'nau': 9, 'nine': 9, 'नौ': 9,
+  'das': 10, 'dus': 10, 'ten': 10, 'दस': 10,
+  'gyarah': 11, 'ग्यारह': 11,
+  'barah': 12, 'बारह': 12,
+  'terah': 13, 'तेरह': 13,
+  'chaudah': 14, 'चौदह': 14,
+  'pandrah': 15, 'पंद्रह': 15,
+  'solah': 16, 'सोलह': 16,
+  'satrah': 17, 'सत्रह': 17,
+  'atharah': 18, 'अठारह': 18,
+  'unnis': 19, 'उन्नीस': 19,
+  'bees': 20, 'बीस': 20,
+  'pachees': 25, 'पच्चीस': 25,
+  'tees': 30, 'तीस': 30,
+  'paintis': 35, 'पैंतीस': 35,
+  'chalis': 40, 'चालीस': 40,
+  'paintalis': 45, 'पैंतालीस': 45,
+  'pachas': 50, 'pachaas': 50, 'पचास': 50,
+  'sau': 100, 'सौ': 100,
+};
+
+/**
+ * Normalizes speech-to-text transcripts, specifically auto-healing Apple iOS STT quirks
+ * where conversational Hindi numbers are outputted as Romanized phonetic word + zeros
+ * (e.g. "Paanch000" -> "5000", "das000" -> "10000", "do00" -> "200").
+ * This is 100% transparent and safe for Android, because Android outputs standard numbers ("5000").
+ */
+export function normalizeVoiceTranscript(transcript: string): string {
+  if (!transcript) return '';
+  return transcript.replace(/([a-zA-Z\u0900-\u097F]+)(0{2,})/gi, (match, prefix, zeros) => {
+    const key = prefix.toLowerCase();
+    if (HINDI_WORD_TO_DIGIT[key] !== undefined) {
+      const num = HINDI_WORD_TO_DIGIT[key];
+      const multiplier = Math.pow(10, zeros.length);
+      return String(num * multiplier);
+    }
+    return match;
+  });
+}
 
 // Known material / expense purpose patterns
 const PURPOSE_DICTIONARY: { keywords: string[]; displayLabel: string; categoryId: string; categoryNameHi: string }[] = [
@@ -72,8 +122,14 @@ const PURPOSE_DICTIONARY: { keywords: string[]; displayLabel: string; categoryId
     categoryNameHi: 'बिजली फिटिंग और जनरेटर',
   },
   {
-    keywords: ['डीजल', 'पेट्रोल', 'गाड़ी', 'भाड़ा', 'किराया', 'लोडिंग', 'ट्रैक्टर', 'ट्रांसपोर्ट', 'fuel'],
-    displayLabel: 'डीजल / ट्रांसपोर्ट',
+    keywords: ['डीजल', 'पेट्रोल', 'petrol', 'diesel', 'fuel'],
+    displayLabel: 'डीजल / पेट्रोल',
+    categoryId: 'cat-fuel',
+    categoryNameHi: 'डीजल और गाड़ी खर्च',
+  },
+  {
+    keywords: ['गाड़ी', 'भाड़ा', 'किराया', 'लोडिंग', 'ट्रैक्टर', 'ट्रांसपोर्ट', 'transport', 'ऑटो', 'auto', 'रिक्शा', 'rickshaw', 'टैक्सी', 'taxi'],
+    displayLabel: 'ट्रांसपोर्ट / भाड़ा',
     categoryId: 'cat-transport',
     categoryNameHi: 'ट्रांसपोर्ट और भाड़ा',
   },
@@ -107,7 +163,8 @@ const PURPOSE_DICTIONARY: { keywords: string[]; displayLabel: string; categoryId
 const STOP_WORDS = new Set([
   'आज', 'कल', 'परसों', 'को', 'से', 'के', 'लिए', 'लिये', 'का', 'की', 'रस', 'रुपये', 'रुपए', 'रु', 'पे',
   'दिए', 'दिया', 'पेमेंट', 'किया', 'कर', 'दें', 'भेजा', 'भेजे', 'है', 'था', 'थी', 'थे',
-  'हजार', 'लाख', 'सौ', 'k', 'rs', 'rupees', 'diye', 'diya', 'ko', 'se', 'aaj', 'kal'
+  'हजार', 'लाख', 'सौ', 'k', 'rs', 'rupees', 'diye', 'diya', 'ko', 'se', 'aaj', 'kal',
+  'लेकिन', 'lekin', 'आई', 'आए', 'तो', 'और', 'aur', 'भी', 'bhi'
 ]);
 
 const PAYMENT_TERMS = new Set([
@@ -120,7 +177,8 @@ const PAYMENT_TERMS = new Set([
  * Extracts a numeric amount from spoken Hindi/English transcript.
  */
 export function extractAmount(transcript: string): number | null {
-  const clean = transcript.toLowerCase();
+  const normalized = normalizeVoiceTranscript(transcript);
+  const clean = normalized.toLowerCase();
 
   // 1. Direct digit matching like "5000", "₹5000", "5,000"
   const directDigitMatch = clean.match(/(?:₹|रुपये|रु|rs\.?|inr)?\s*(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:रुपये|रुपए|rupees|rs)?/i);
@@ -319,6 +377,43 @@ export function extractDescription(transcript: string, matchedVendor?: string): 
         }
       }
 
+      // Check if there is an item/material specified AFTER "के लिए" (e.g. "स्कूटी के लिए ₹300 का पेट्रोल")
+      const suffix = transcript.slice(match.index + match[0].length).trim();
+      const sanitizedSuffix = suffix
+        .replace(/(?:₹|rs\.?|inr)?\s*[\d,]+(?:\.\d+)?/gi, ' ')
+        .replace(/[.,!₹]/g, ' ')
+        .trim();
+      const suffixTokens = sanitizedSuffix
+        .split(/\s+/)
+        .map((t) => t.trim().toLowerCase())
+        .filter((t) => t && !STOP_WORDS.has(t) && !PAYMENT_TERMS.has(t));
+
+      let suffixMatchedItem: { displayLabel: string; categoryId: string; categoryNameHi: string; matchedWord: string } | null = null;
+      for (const tok of suffixTokens) {
+        // Skip matched vendor name
+        if (matchedVendor && (matchedVendor.toLowerCase().includes(tok) || tok.includes(matchedVendor.toLowerCase()))) {
+          continue;
+        }
+        for (const item of PURPOSE_DICTIONARY) {
+          for (const kw of item.keywords) {
+            if (tok === kw || tok.includes(kw)) {
+              suffixMatchedItem = { ...item, matchedWord: tok };
+              break;
+            }
+          }
+          if (suffixMatchedItem) break;
+        }
+        if (suffixMatchedItem) break;
+      }
+
+      if (suffixMatchedItem) {
+        return {
+          description: `${candidateStr} ${marker} ${suffixMatchedItem.matchedWord}`,
+          categoryId: suffixMatchedItem.categoryId,
+          categoryNameHi: suffixMatchedItem.categoryNameHi,
+        };
+      }
+
       // Purpose/action phrase (e.g. "सामान लाने के लिए", "खाने के लिए", "saman laney ke liye")
       const fullPhrase = `${candidateStr} ${marker}`;
 
@@ -410,18 +505,19 @@ export function extractDescription(transcript: string, matchedVendor?: string): 
  */
 export function parseVoiceTranscript(transcript: string): ParsedVoiceResult {
   const trimmed = transcript.trim();
-  const amountRupees = extractAmount(trimmed);
-  const paymentMethod = extractPaymentMethod(trimmed);
-  const paymentDate = extractDate(trimmed);
-  const vendorName = extractVendor(trimmed);
+  const normalized = normalizeVoiceTranscript(trimmed);
+  const amountRupees = extractAmount(normalized);
+  const paymentMethod = extractPaymentMethod(normalized);
+  const paymentDate = extractDate(normalized);
+  const vendorName = extractVendor(normalized);
 
   // Extract clean purpose & category
-  const { description, categoryId, categoryNameHi } = extractDescription(trimmed, vendorName);
+  const { description, categoryId, categoryNameHi } = extractDescription(normalized, vendorName);
 
   const confidence = amountRupees ? 0.95 : 0.4;
 
   return {
-    rawTranscript: trimmed,
+    rawTranscript: normalized,
     amountRupees: amountRupees || undefined,
     amountPaise: amountRupees ? Math.round(amountRupees * 100) : undefined,
     description,
